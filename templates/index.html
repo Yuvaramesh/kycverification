@@ -1,0 +1,2122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KYC Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --ink: #0d0f12;
+        --ink-soft: #4a5260;
+        --line: #e4e7ed;
+        --surface: #f7f8fa;
+        --white: #ffffff;
+        --accent: #1a1f2e;
+        --green: #16a34a;
+        --red: #dc2626;
+        --amber: #d97706;
+        --blue: #2563eb;
+        --radius: 14px;
+      }
+
+      html,
+      body {
+        min-height: 100vh;
+        font-family: "DM Sans", sans-serif;
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      /* ── Layout ─────────────────────────────────────────────────────────── */
+      .shell {
+        display: grid;
+        grid-template-columns: 340px 1fr;
+        min-height: 100vh;
+      }
+
+      /* ── Sidebar ─────────────────────────────────────────────────────────── */
+      .sidebar {
+        background: var(--accent);
+        color: #fff;
+        padding: 52px 40px;
+        display: flex;
+        flex-direction: column;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+      }
+      .sidebar-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 60px;
+      }
+      .sidebar-logo .mark {
+        width: 36px;
+        height: 36px;
+        background: #fff;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+      }
+      .sidebar-logo .mark svg {
+        width: 20px;
+        height: 20px;
+      }
+      .sidebar-logo span {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.15rem;
+        letter-spacing: -0.02em;
+      }
+      .step-nav {
+        flex: 1;
+      }
+      .step-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 20px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+      .step-item:last-child {
+        border-bottom: none;
+      }
+      .step-num {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        display: grid;
+        place-items: center;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.8rem;
+        flex-shrink: 0;
+        transition: all 0.3s;
+        color: rgba(255, 255, 255, 0.45);
+      }
+      .step-item.active .step-num {
+        border-color: #fff;
+        background: #fff;
+        color: var(--accent);
+      }
+      .step-item.done .step-num {
+        border-color: #4ade80;
+        background: #4ade80;
+        color: #14532d;
+      }
+      .step-label {
+        opacity: 0.4;
+        transition: opacity 0.3s;
+      }
+      .step-item.active .step-label,
+      .step-item.done .step-label {
+        opacity: 1;
+      }
+      .step-label strong {
+        display: block;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 3px;
+      }
+      .step-label p {
+        font-size: 0.78rem;
+        color: rgba(255, 255, 255, 0.6);
+        line-height: 1.4;
+      }
+      .sidebar-footer {
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.3);
+        line-height: 1.6;
+        margin-top: 40px;
+      }
+
+      /* ── Main ────────────────────────────────────────────────────────────── */
+      .main {
+        display: flex;
+        flex-direction: column;
+        padding: 52px 64px;
+        max-width: 780px;
+      }
+      .step-panel {
+        display: none;
+        animation: fadeUp 0.35s ease;
+      }
+      .step-panel.active {
+        display: block;
+      }
+      @keyframes fadeUp {
+        from {
+          opacity: 0;
+          transform: translateY(18px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Step header ─────────────────────────────────────────────────────── */
+      .step-header {
+        margin-bottom: 40px;
+      }
+      .step-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.7rem;
+        font-weight: 500;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        background: var(--line);
+        padding: 5px 12px;
+        border-radius: 20px;
+        margin-bottom: 16px;
+      }
+      .step-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 2rem;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        margin-bottom: 10px;
+      }
+      .step-subtitle {
+        font-size: 0.9rem;
+        color: var(--ink-soft);
+        line-height: 1.6;
+      }
+
+      /* ── Section label ───────────────────────────────────────────────────── */
+      .section-label {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.78rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        margin-bottom: 14px;
+      }
+
+      /* ── Document type ───────────────────────────────────────────────────── */
+      .doc-type-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 36px;
+      }
+      .doc-type-btn {
+        border: 2px solid var(--line);
+        background: var(--white);
+        border-radius: var(--radius);
+        padding: 18px 14px;
+        cursor: pointer;
+        text-align: center;
+        transition: all 0.2s;
+      }
+      .doc-type-btn:hover {
+        border-color: #a0aab8;
+      }
+      .doc-type-btn.selected {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #fff;
+      }
+      .doc-icon {
+        font-size: 1.6rem;
+        margin-bottom: 8px;
+        display: block;
+      }
+      .doc-name {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.02em;
+      }
+
+      /* ── Upload zones ────────────────────────────────────────────────────── */
+      .uploads-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+      .upload-zone {
+        border: 2px dashed var(--line);
+        border-radius: var(--radius);
+        background: var(--white);
+        padding: 28px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        position: relative;
+        overflow: hidden;
+      }
+      .upload-zone:hover {
+        border-color: #a0aab8;
+        background: var(--surface);
+      }
+      .upload-zone.has-file {
+        border-style: solid;
+        border-color: var(--green);
+        background: #f0fdf4;
+      }
+      .upload-zone.drag-over {
+        border-color: var(--blue);
+        background: #eff6ff;
+      }
+      .upload-zone input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+        height: 100%;
+      }
+      .upload-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: var(--surface);
+        display: grid;
+        place-items: center;
+        margin: 0 auto 12px;
+        transition: background 0.2s;
+      }
+      .upload-zone.has-file .upload-icon {
+        background: #dcfce7;
+      }
+      .upload-icon svg {
+        width: 22px;
+        height: 22px;
+        color: var(--ink-soft);
+      }
+      .upload-zone.has-file .upload-icon svg {
+        color: var(--green);
+      }
+      .upload-label {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: var(--ink);
+        margin-bottom: 4px;
+      }
+      .upload-hint {
+        font-size: 0.72rem;
+        color: var(--ink-soft);
+        line-height: 1.4;
+      }
+      .upload-filename {
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--green);
+        margin-top: 6px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Selfie card ─────────────────────────────────────────────────────── */
+      .selfie-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--white);
+        overflow: hidden;
+        margin-bottom: 24px;
+      }
+      .selfie-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 18px 20px;
+        border-bottom: 1px solid var(--line);
+        background: var(--surface);
+      }
+      .selfie-card-header .upload-label {
+        font-size: 0.85rem;
+      }
+
+      /* Toggle buttons */
+      .selfie-toggle {
+        display: flex;
+        background: var(--line);
+        border-radius: 8px;
+        padding: 3px;
+        gap: 3px;
+      }
+      .toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        border-radius: 6px;
+        border: none;
+        background: transparent;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+      }
+      .toggle-btn:hover {
+        color: var(--ink);
+      }
+      .toggle-btn.active {
+        background: var(--white);
+        color: var(--ink);
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      /* ── Camera panel ────────────────────────────────────────────────────── */
+      .camera-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4/3;
+        background: #0d0f12;
+        overflow: hidden;
+      }
+      #cameraVideo {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1); /* mirror */
+        display: block;
+      }
+
+      /* Face guide overlay */
+      .face-guide {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+      }
+      .face-oval {
+        width: 200px;
+        height: 260px;
+        border: 3px solid rgba(255, 255, 255, 0.6);
+        border-radius: 50%;
+        box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.38);
+      }
+      .guide-text {
+        position: absolute;
+        bottom: 28px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.8);
+        background: rgba(0, 0, 0, 0.45);
+        padding: 5px 14px;
+        border-radius: 20px;
+        letter-spacing: 0.02em;
+      }
+
+      /* Idle state (before camera opens) */
+      .camera-idle {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        background: #111318;
+      }
+      .camera-idle-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.06);
+        display: grid;
+        place-items: center;
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .camera-idle p {
+        font-size: 0.82rem;
+        color: rgba(255, 255, 255, 0.45);
+        text-align: center;
+        max-width: 220px;
+        line-height: 1.5;
+      }
+      .start-camera-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 11px 22px;
+        background: var(--white);
+        color: var(--ink);
+        border: none;
+        border-radius: 10px;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .start-camera-btn:hover {
+        background: #e8ecf0;
+        transform: translateY(-1px);
+      }
+
+      /* Captured preview overlay */
+      .capture-preview {
+        position: absolute;
+        inset: 0;
+      }
+      .capture-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transform: scaleX(-1);
+      }
+      .capture-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 20px;
+        background: linear-gradient(
+          to top,
+          rgba(0, 0, 0, 0.55) 0%,
+          transparent 60%
+        );
+      }
+      .capture-ok {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #4ade80;
+      }
+      .retake-btn {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 8px 16px;
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(6px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: #fff;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.78rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .retake-btn:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      /* Shutter / capture actions */
+      .capture-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 20px;
+        background: var(--surface);
+        border-top: 1px solid var(--line);
+      }
+      .shutter-btn {
+        width: 62px;
+        height: 62px;
+        border-radius: 50%;
+        border: 4px solid var(--accent);
+        background: var(--white);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: all 0.15s;
+        position: relative;
+      }
+      .shutter-btn:hover {
+        transform: scale(1.06);
+      }
+      .shutter-btn:active {
+        transform: scale(0.95);
+      }
+      .shutter-inner {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        background: var(--accent);
+        transition: all 0.15s;
+      }
+      .shutter-btn:hover .shutter-inner {
+        background: #2d3650;
+      }
+      .capture-hint {
+        font-size: 0.72rem;
+        color: var(--ink-soft);
+        letter-spacing: 0.04em;
+      }
+
+      /* Camera error */
+      .camera-error {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        background: #111318;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.82rem;
+        text-align: center;
+        padding: 20px;
+      }
+      .camera-error svg {
+        color: #ef4444;
+      }
+
+      /* Upload selfie panel */
+      #selfie-upload-panel {
+        padding: 16px;
+      }
+
+      /* ── Info banner ─────────────────────────────────────────────────────── */
+      .info-banner {
+        display: flex;
+        gap: 12px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: var(--radius);
+        padding: 14px 18px;
+        margin-bottom: 28px;
+      }
+      .info-banner svg {
+        flex-shrink: 0;
+        color: var(--blue);
+        margin-top: 1px;
+      }
+      .info-banner p {
+        font-size: 0.8rem;
+        color: #1e40af;
+        line-height: 1.5;
+      }
+
+      /* ── Submit button ───────────────────────────────────────────────────── */
+      .btn-submit {
+        width: 100%;
+        padding: 16px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--radius);
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+      }
+      .btn-submit:hover:not(:disabled) {
+        background: #2d3650;
+        transform: translateY(-1px);
+      }
+      .btn-submit:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        transform: none;
+      }
+      .btn-submit .spinner {
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+        display: none;
+      }
+      .btn-submit.loading .spinner {
+        display: block;
+      }
+      .btn-submit.loading .btn-text {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Error banner ────────────────────────────────────────────────────── */
+      .error-banner {
+        background: #fff1f2;
+        border: 1px solid #fecdd3;
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        font-size: 0.82rem;
+        color: #9f1239;
+        margin-top: 14px;
+        display: none;
+      }
+      .error-banner.show {
+        display: block;
+      }
+
+      /* ── Result card (step 2) ────────────────────────────────────────────── */
+      .result-card {
+        background: var(--white);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        overflow: hidden;
+      }
+      .result-header {
+        padding: 36px 36px 28px;
+        border-bottom: 1px solid var(--line);
+      }
+      .result-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.75rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 16px;
+      }
+      .status-processing {
+        background: #fef9c3;
+        color: #92400e;
+      }
+      .status-approved {
+        background: #dcfce7;
+        color: #14532d;
+      }
+      .status-rejected {
+        background: #fee2e2;
+        color: #7f1d1d;
+      }
+      .status-pending {
+        background: #dbeafe;
+        color: #1e3a8a;
+      }
+      .status-reviewing {
+        background: #f3e8ff;
+        color: #4c1d95;
+      }
+      .result-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.6rem;
+        letter-spacing: -0.03em;
+        margin-bottom: 6px;
+      }
+      .result-subtitle {
+        font-size: 0.85rem;
+        color: var(--ink-soft);
+      }
+      .result-app-id {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 14px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 7px 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--ink-soft);
+        cursor: pointer;
+      }
+      .result-app-id:hover {
+        background: var(--line);
+      }
+
+      /* Metrics */
+      .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1px;
+        background: var(--line);
+      }
+      .metric-cell {
+        background: var(--white);
+        padding: 22px 28px;
+      }
+      .metric-label {
+        font-size: 0.7rem;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--ink-soft);
+        margin-bottom: 8px;
+      }
+      .metric-value {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.5rem;
+        letter-spacing: -0.03em;
+        line-height: 1;
+      }
+      .metric-sub {
+        font-size: 0.75rem;
+        color: var(--ink-soft);
+        margin-top: 4px;
+      }
+      .risk-bar-wrap {
+        height: 6px;
+        background: var(--line);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 10px;
+      }
+      .risk-bar {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 1s ease;
+      }
+      .risk-low .risk-bar {
+        background: var(--green);
+      }
+      .risk-mid .risk-bar {
+        background: var(--amber);
+      }
+      .risk-high .risk-bar {
+        background: var(--red);
+      }
+
+      /* Checks */
+      .checks-list {
+        padding: 24px 28px;
+      }
+      .checks-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--ink-soft);
+        margin-bottom: 16px;
+      }
+      .check-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 13px 0;
+        border-bottom: 1px solid var(--surface);
+      }
+      .check-item:last-child {
+        border-bottom: none;
+      }
+      .check-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .dot-green {
+        background: var(--green);
+      }
+      .dot-red {
+        background: var(--red);
+      }
+      .dot-amber {
+        background: var(--amber);
+      }
+      .dot-blue {
+        background: var(--blue);
+      }
+      .dot-gray {
+        background: #cbd5e1;
+      }
+      .check-name {
+        flex: 1;
+        font-size: 0.85rem;
+        font-weight: 500;
+      }
+      .check-val {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+      }
+
+      /* Route badge */
+      .route-badge {
+        margin: 20px 28px;
+        padding: 16px 20px;
+        border-radius: var(--radius);
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .route-internal {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+      }
+      .route-onfido {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+      }
+      .route-rejected {
+        background: #fff1f2;
+        border: 1px solid #fecdd3;
+      }
+      .route-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .route-internal .route-icon {
+        background: #dcfce7;
+      }
+      .route-onfido .route-icon {
+        background: #dbeafe;
+      }
+      .route-rejected .route-icon {
+        background: #ffe4e6;
+      }
+      .route-text strong {
+        display: block;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.85rem;
+        margin-bottom: 3px;
+      }
+      .route-text p {
+        font-size: 0.78rem;
+        color: var(--ink-soft);
+        line-height: 1.4;
+      }
+
+      /* Restart */
+      .btn-restart {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: calc(100% - 56px);
+        margin: 20px 28px;
+        padding: 13px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .btn-restart:hover {
+        background: var(--line);
+        color: var(--ink);
+      }
+
+      /* Polling */
+      .polling-wrap {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 28px;
+        border-top: 1px solid var(--line);
+      }
+      .pulse-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--blue);
+        animation: pulse 1.4s ease infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.4;
+          transform: scale(0.7);
+        }
+      }
+      .polling-text {
+        font-size: 0.8rem;
+        color: var(--ink-soft);
+      }
+
+      /* ── Responsive ──────────────────────────────────────────────────────── */
+      @media (max-width: 900px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+        .sidebar {
+          display: none;
+        }
+        .main {
+          padding: 32px 24px;
+          max-width: 100%;
+        }
+      }
+      @media (max-width: 600px) {
+        .doc-type-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .uploads-grid {
+          grid-template-columns: 1fr;
+        }
+        .metrics-grid {
+          grid-template-columns: 1fr;
+        }
+        .selfie-card-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .toggle-btn {
+          padding: 6px 10px;
+          font-size: 0.74rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+      <aside class="sidebar">
+        <div class="sidebar-logo">
+          <div class="mark">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path
+                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+              />
+            </svg>
+          </div>
+          <span>VerifyKYC</span>
+        </div>
+
+        <nav class="step-nav">
+          <div class="step-item active" id="nav-step-1">
+            <div class="step-num">1</div>
+            <div class="step-label">
+              <strong>Documents</strong>
+              <p>Upload your ID document and a selfie photo</p>
+            </div>
+          </div>
+          <div class="step-item" id="nav-step-2">
+            <div class="step-num">2</div>
+            <div class="step-label">
+              <strong>Verification</strong>
+              <p>Our system analyses your documents instantly</p>
+            </div>
+          </div>
+        </nav>
+
+        <div class="sidebar-footer">
+          Your data is encrypted end-to-end and processed<br />
+          securely in compliance with GDPR &amp; KYC regulations.
+        </div>
+      </aside>
+
+      <!-- ── Main ──────────────────────────────────────────────────────────── -->
+      <main class="main">
+        <!-- ════════════════════════════════════════════════════════════════════
+         STEP 1 — Document + Selfie Upload
+         ════════════════════════════════════════════════════════════════════ -->
+        <div class="step-panel active" id="step-1">
+          <div class="step-header">
+            <div class="step-tag">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4l3 3" />
+              </svg>
+              Step 1 of 2
+            </div>
+            <h1 class="step-title">Upload your<br />documents</h1>
+            <p class="step-subtitle">
+              Select a document type, upload photos, and take or upload a
+              selfie. No personal data beyond what's in your document is
+              collected.
+            </p>
+          </div>
+
+          <!-- Document type -->
+          <div class="section-label" style="margin-bottom: 14px">
+            Document Type
+          </div>
+          <div class="doc-type-grid" style="margin-bottom: 32px">
+            <button
+              class="doc-type-btn selected"
+              data-type="passport"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">🛂</span>
+              <span class="doc-name">Passport</span>
+            </button>
+            <button
+              class="doc-type-btn"
+              data-type="drivers_license"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">🪪</span>
+              <span class="doc-name">Driver's License</span>
+            </button>
+            <button
+              class="doc-type-btn"
+              data-type="national_id"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">🪪</span>
+              <span class="doc-name">National ID</span>
+            </button>
+          </div>
+
+          <!-- Document uploads -->
+          <div class="section-label">Document Photos</div>
+          <div class="uploads-grid" style="margin-bottom: 28px">
+            <!-- Front -->
+            <div
+              class="upload-zone"
+              id="zone-front"
+              ondragover="onDragOver(event)"
+              ondragleave="onDragLeave(event)"
+              ondrop="onDrop(event, 'document_front')"
+            >
+              <input
+                type="file"
+                id="document_front"
+                accept="image/*,.pdf"
+                onchange="onFileSelect(this, 'document_front')"
+              />
+              <div class="upload-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M7 8h10M7 12h6" />
+                </svg>
+              </div>
+              <div class="upload-label">
+                Front Side <span style="color: var(--red)">*</span>
+              </div>
+              <div class="upload-hint">Clear photo of the front</div>
+              <div class="upload-filename" id="fname-document_front"></div>
+            </div>
+
+            <!-- Back -->
+            <div
+              class="upload-zone"
+              id="zone-back"
+              ondragover="onDragOver(event)"
+              ondragleave="onDragLeave(event)"
+              ondrop="onDrop(event, 'document_back')"
+            >
+              <input
+                type="file"
+                id="document_back"
+                accept="image/*,.pdf"
+                onchange="onFileSelect(this, 'document_back')"
+              />
+              <div class="upload-icon">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.8"
+                >
+                  <rect x="3" y="4" width="18" height="16" rx="2" />
+                  <path d="M7 8h10M7 12h4" />
+                  <circle
+                    cx="17"
+                    cy="16"
+                    r="2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </svg>
+              </div>
+              <div class="upload-label">Back Side</div>
+              <div class="upload-hint">Clear photo of the back</div>
+              <div class="upload-filename" id="fname-document_back"></div>
+            </div>
+          </div>
+
+          <!-- ── Selfie card ────────────────────────────────────────────────── -->
+          <div class="section-label">Selfie Photo</div>
+
+          <div class="selfie-card">
+            <!-- Header with toggle -->
+            <div class="selfie-card-header">
+              <span style="font-size: 0.82rem; color: var(--ink-soft)"
+                >Take a live selfie or upload a photo</span
+              >
+              <div class="selfie-toggle">
+                <button
+                  class="toggle-btn active"
+                  id="btn-camera"
+                  onclick="switchSelfieMode('camera')"
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                  >
+                    <path
+                      d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                    />
+                    <circle cx="12" cy="13" r="4" />
+                  </svg>
+                  Live Selfie
+                </button>
+                <button
+                  class="toggle-btn"
+                  id="btn-upload-selfie"
+                  onclick="switchSelfieMode('upload')"
+                >
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                  >
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                    <polyline points="17 8 12 3 7 8" />
+                    <line x1="12" y1="3" x2="12" y2="15" />
+                  </svg>
+                  Upload Photo
+                </button>
+              </div>
+            </div>
+
+            <!-- Camera panel -->
+            <div id="selfie-camera-panel">
+              <div class="camera-wrap" id="cameraWrap">
+                <!-- Live video -->
+                <video
+                  id="cameraVideo"
+                  autoplay
+                  playsinline
+                  muted
+                  style="display: none"
+                ></video>
+
+                <!-- Face guide (shown while streaming) -->
+                <div class="face-guide" id="faceGuide" style="display: none">
+                  <div class="face-oval"></div>
+                  <div class="guide-text">Centre your face in the oval</div>
+                </div>
+
+                <!-- Idle (before camera opens) -->
+                <div class="camera-idle" id="cameraIdle">
+                  <div class="camera-idle-icon">
+                    <svg
+                      width="32"
+                      height="32"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.5"
+                    >
+                      <path
+                        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                      />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                  </div>
+                  <p>Camera access is needed to take your live selfie</p>
+                  <button class="start-camera-btn" onclick="startCamera()">
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                    >
+                      <path
+                        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                      />
+                      <circle cx="12" cy="13" r="4" />
+                    </svg>
+                    Open Camera
+                  </button>
+                </div>
+
+                <!-- Captured preview (replaces video after capture) -->
+                <div
+                  class="capture-preview"
+                  id="capturePreview"
+                  style="display: none"
+                >
+                  <img id="captureImg" src="" alt="Captured selfie" />
+                  <div class="capture-overlay">
+                    <div class="capture-ok">✓ Selfie captured</div>
+                    <button class="retake-btn" onclick="retakePhoto()">
+                      <svg
+                        width="13"
+                        height="13"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                      >
+                        <path d="M1 4v6h6M23 20v-6h-6" />
+                        <path
+                          d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
+                        />
+                      </svg>
+                      Retake
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Camera error -->
+                <div
+                  class="camera-error"
+                  id="cameraError"
+                  style="display: none"
+                >
+                  <svg
+                    width="28"
+                    height="28"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  <span id="cameraErrorMsg">Camera access was denied.</span>
+                  <button
+                    class="start-camera-btn"
+                    onclick="startCamera()"
+                    style="margin-top: 6px"
+                  >
+                    Try Again
+                  </button>
+                </div>
+
+                <!-- Hidden canvas for capture -->
+                <canvas id="cameraCanvas" style="display: none"></canvas>
+              </div>
+
+              <!-- Shutter button row (shown while live) -->
+              <div
+                class="capture-actions"
+                id="captureActions"
+                style="display: none"
+              >
+                <button
+                  class="shutter-btn"
+                  onclick="capturePhoto()"
+                  title="Take photo"
+                >
+                  <div class="shutter-inner"></div>
+                </button>
+                <div class="capture-hint">Click to take your selfie</div>
+              </div>
+            </div>
+            <!-- /selfie-camera-panel -->
+
+            <!-- Upload panel -->
+            <div id="selfie-upload-panel" style="display: none; padding: 16px">
+              <div
+                class="upload-zone"
+                id="zone-selfie"
+                ondragover="onDragOver(event)"
+                ondragleave="onDragLeave(event)"
+                ondrop="onDrop(event, 'selfie_photo')"
+                style="border-radius: 12px"
+              >
+                <input
+                  type="file"
+                  id="selfie_photo"
+                  accept="image/*"
+                  onchange="onFileSelect(this, 'selfie_photo')"
+                />
+                <div class="upload-icon">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  >
+                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+                <div class="upload-label">Upload Selfie</div>
+                <div class="upload-hint">
+                  Clear face photo in good lighting. JPG or PNG, max 16 MB.
+                </div>
+                <div class="upload-filename" id="fname-selfie_photo"></div>
+              </div>
+            </div>
+          </div>
+          <!-- /selfie-card -->
+
+          <div class="info-banner">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <p>
+              Files are encrypted and used only for identity verification. JPG,
+              PNG or PDF. Max 16 MB per file.
+            </p>
+          </div>
+
+          <button
+            class="btn-submit"
+            id="submitBtn"
+            onclick="submitApplication()"
+          >
+            <div class="spinner"></div>
+            <span class="btn-text">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                style="display: inline; vertical-align: -3px; margin-right: 6px"
+              >
+                <path
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                />
+              </svg>
+              Submit for Verification
+            </span>
+          </button>
+
+          <div class="error-banner" id="errorBanner"></div>
+        </div>
+        <!-- /step-1 -->
+
+        <!-- ════════════════════════════════════════════════════════════════════
+         STEP 2 — Verification Result
+         ════════════════════════════════════════════════════════════════════ -->
+        <div class="step-panel" id="step-2">
+          <div class="step-header">
+            <div class="step-tag">
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9 12l2 2 4-4" />
+              </svg>
+              Step 2 of 2
+            </div>
+            <h1 class="step-title">Verification<br />Result</h1>
+            <p class="step-subtitle">
+              Here's what our automated checks found for your submission.
+            </p>
+          </div>
+
+          <div class="result-card">
+            <div class="result-header">
+              <div class="result-status" id="statusBadge">⏳ Processing</div>
+              <div class="result-title" id="resultTitle">
+                Analysing your documents…
+              </div>
+              <div class="result-subtitle" id="resultSubtitle">
+                This usually takes a few seconds.
+              </div>
+              <div
+                class="result-app-id"
+                onclick="copyAppId()"
+                title="Click to copy"
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="9" y="9" width="13" height="13" rx="2" />
+                  <path
+                    d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"
+                  />
+                </svg>
+                <span id="appIdText">—</span>
+              </div>
+            </div>
+
+            <div class="metrics-grid" id="metricsGrid" style="display: none">
+              <div class="metric-cell" id="riskCell">
+                <div class="metric-label">Risk Score</div>
+                <div class="metric-value" id="riskValue">—</div>
+                <div class="metric-sub" id="riskSub"></div>
+                <div class="risk-bar-wrap">
+                  <div class="risk-bar" id="riskBar" style="width: 0%"></div>
+                </div>
+              </div>
+              <div class="metric-cell">
+                <div class="metric-label">Face Match</div>
+                <div class="metric-value" id="faceValue">—</div>
+                <div class="metric-sub" id="faceSub"></div>
+              </div>
+              <div class="metric-cell">
+                <div class="metric-label">Liveness</div>
+                <div class="metric-value" id="liveValue">—</div>
+                <div class="metric-sub" id="liveSub"></div>
+              </div>
+              <div class="metric-cell">
+                <div class="metric-label">Document Expiry</div>
+                <div class="metric-value" id="expiryValue">—</div>
+                <div class="metric-sub" id="expirySub"></div>
+              </div>
+            </div>
+
+            <div class="checks-list" id="checksList" style="display: none">
+              <div class="checks-title">Checks Performed</div>
+              <div id="checksContainer"></div>
+            </div>
+
+            <div id="routeBadge" style="display: none"></div>
+
+            <div class="polling-wrap" id="pollingWrap">
+              <div class="pulse-dot"></div>
+              <div class="polling-text">Running verification pipeline…</div>
+            </div>
+
+            <button
+              class="btn-restart"
+              id="restartBtn"
+              style="display: none"
+              onclick="restartFlow()"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+              >
+                <path d="M1 4v6h6M23 20v-6h-6" />
+                <path
+                  d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
+                />
+              </svg>
+              Start a new verification
+            </button>
+          </div>
+        </div>
+        <!-- /step-2 -->
+      </main>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════════════
+     JAVASCRIPT
+     ══════════════════════════════════════════════════════════════════════════ -->
+    <script>
+      /* ── State ────────────────────────────────────────────────────────────── */
+      let selectedDocType = "passport";
+      let files = {}; // { field: File | Blob }
+      let currentAppId = null;
+      let pollTimer = null;
+      let cameraStream = null; // MediaStream
+      let selfieMode = "camera"; // 'camera' | 'upload'
+
+      /* ── Document type ────────────────────────────────────────────────────── */
+      function selectDocType(btn) {
+        document
+          .querySelectorAll(".doc-type-btn")
+          .forEach((b) => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        selectedDocType = btn.dataset.type;
+
+        const backZone = document.getElementById("zone-back");
+        const isPassport = selectedDocType === "passport";
+        backZone.style.opacity = isPassport ? "0.4" : "1";
+        backZone.style.pointerEvents = isPassport ? "none" : "auto";
+        if (isPassport) {
+          delete files["document_back"];
+          document.getElementById("fname-document_back").textContent = "";
+          backZone.classList.remove("has-file");
+        }
+      }
+
+      /* ── File upload helpers ──────────────────────────────────────────────── */
+      function onFileSelect(input, field) {
+        if (input.files?.[0]) setFile(field, input.files[0]);
+      }
+      function setFile(field, fileOrBlob, name) {
+        files[field] = fileOrBlob;
+        const zoneId = {
+          document_front: "zone-front",
+          document_back: "zone-back",
+          selfie_photo: "zone-selfie",
+        }[field];
+        if (zoneId) document.getElementById(zoneId)?.classList.add("has-file");
+        const fname = document.getElementById("fname-" + field);
+        if (fname)
+          fname.textContent = "✓ " + (name || fileOrBlob.name || "captured");
+      }
+      function onDragOver(e) {
+        e.preventDefault();
+        e.currentTarget.classList.add("drag-over");
+      }
+      function onDragLeave(e) {
+        e.currentTarget.classList.remove("drag-over");
+      }
+      function onDrop(e, field) {
+        e.preventDefault();
+        e.currentTarget.classList.remove("drag-over");
+        const f = e.dataTransfer.files[0];
+        if (f) setFile(field, f);
+      }
+
+      /* ── Selfie mode toggle ───────────────────────────────────────────────── */
+      function switchSelfieMode(mode) {
+        selfieMode = mode;
+        document
+          .getElementById("btn-camera")
+          .classList.toggle("active", mode === "camera");
+        document
+          .getElementById("btn-upload-selfie")
+          .classList.toggle("active", mode === "upload");
+        document.getElementById("selfie-camera-panel").style.display =
+          mode === "camera" ? "" : "none";
+        document.getElementById("selfie-upload-panel").style.display =
+          mode === "upload" ? "" : "none";
+
+        if (mode === "upload") {
+          stopCamera();
+          // Clear any captured selfie so user must re-capture or upload
+          if (
+            !files["selfie_photo"] ||
+            files["selfie_photo"]._source === "camera"
+          ) {
+            delete files["selfie_photo"];
+          }
+        }
+      }
+
+      /* ── Camera ───────────────────────────────────────────────────────────── */
+      async function startCamera() {
+        const idle = document.getElementById("cameraIdle");
+        const errEl = document.getElementById("cameraError");
+        const video = document.getElementById("cameraVideo");
+        const guide = document.getElementById("faceGuide");
+        const actions = document.getElementById("captureActions");
+
+        idle.style.display = "none";
+        errEl.style.display = "none";
+
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "user",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          });
+          video.srcObject = cameraStream;
+          video.style.display = "block";
+          guide.style.display = "";
+          actions.style.display = "";
+        } catch (err) {
+          console.error("Camera error:", err);
+          const msg =
+            err.name === "NotAllowedError"
+              ? "Camera access was denied. Please allow camera permissions and try again."
+              : "Could not access the camera. Please check your device and try again.";
+          document.getElementById("cameraErrorMsg").textContent = msg;
+          errEl.style.display = "";
+        }
+      }
+
+      function stopCamera() {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((t) => t.stop());
+          cameraStream = null;
+        }
+        const video = document.getElementById("cameraVideo");
+        video.srcObject = null;
+        video.style.display = "none";
+        document.getElementById("faceGuide").style.display = "none";
+        document.getElementById("captureActions").style.display = "none";
+      }
+
+      function capturePhoto() {
+        const video = document.getElementById("cameraVideo");
+        const canvas = document.getElementById("cameraCanvas");
+
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+
+        const ctx = canvas.getContext("2d");
+        // Flip horizontally to match the mirrored preview
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return;
+            blob._source = "camera";
+            files["selfie_photo"] = blob;
+
+            // Show preview
+            const img = document.getElementById("captureImg");
+            img.src = URL.createObjectURL(blob);
+            document.getElementById("capturePreview").style.display = "";
+
+            // Hide live video & guide
+            video.style.display = "none";
+            document.getElementById("faceGuide").style.display = "none";
+            document.getElementById("captureActions").style.display = "none";
+
+            stopCamera();
+          },
+          "image/jpeg",
+          0.92,
+        );
+      }
+
+      function retakePhoto() {
+        delete files["selfie_photo"];
+        document.getElementById("capturePreview").style.display = "none";
+        // Reset to idle so user must re-open camera
+        document.getElementById("cameraIdle").style.display = "";
+      }
+
+      /* ── Submit ───────────────────────────────────────────────────────────── */
+      async function submitApplication() {
+        hideError();
+
+        if (!files["document_front"]) {
+          showError("Please upload the front of your document.");
+          return;
+        }
+        if (selectedDocType !== "passport" && !files["document_back"]) {
+          showError("Please upload the back of your document.");
+          return;
+        }
+        if (!files["selfie_photo"]) {
+          showError(
+            selfieMode === "camera"
+              ? "Please take a live selfie using the camera."
+              : "Please upload a selfie photo.",
+          );
+          return;
+        }
+
+        setLoading(true);
+
+        const fd = new FormData();
+        fd.append("document_type", selectedDocType);
+        fd.append(
+          "document_front",
+          files["document_front"],
+          files["document_front"].name || "document_front.jpg",
+        );
+        if (files["document_back"])
+          fd.append(
+            "document_back",
+            files["document_back"],
+            files["document_back"].name || "document_back.jpg",
+          );
+        fd.append(
+          "selfie_photo",
+          files["selfie_photo"],
+          files["selfie_photo"].name || "selfie.jpg",
+        );
+
+        try {
+          const res = await fetch("/api/applications", {
+            method: "POST",
+            body: fd,
+          });
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error || "Submission failed");
+
+          currentAppId = data.application_id;
+          stopCamera();
+          goToStep2();
+          startPolling();
+        } catch (err) {
+          setLoading(false);
+          showError(err.message || "An error occurred. Please try again.");
+        }
+      }
+
+      /* ── Navigation ───────────────────────────────────────────────────────── */
+      function goToStep2() {
+        document.getElementById("step-1").classList.remove("active");
+        document.getElementById("step-2").classList.add("active");
+        document
+          .getElementById("nav-step-1")
+          .classList.replace("active", "done");
+        document.querySelector("#nav-step-1 .step-num").textContent = "✓";
+        document.getElementById("nav-step-2").classList.add("active");
+        document.getElementById("appIdText").textContent = currentAppId;
+        setLoading(false);
+      }
+
+      /* ── Polling ──────────────────────────────────────────────────────────── */
+      function startPolling() {
+        pollStatus();
+        pollTimer = setInterval(pollStatus, 2500);
+      }
+
+      async function pollStatus() {
+        try {
+          const res = await fetch(`/api/applications/${currentAppId}`);
+          const data = await res.json();
+          if (!data.success) return;
+          if (data.application.status !== "processing") {
+            clearInterval(pollTimer);
+            renderResult(data.application);
+          }
+        } catch (_) {}
+      }
+
+      /* ── Render result ────────────────────────────────────────────────────── */
+      function renderResult(app) {
+        const v = app.verification || {};
+        const risk = v.risk_score ?? null;
+
+        const statusMap = {
+          approved: [
+            "✓ Approved",
+            "status-approved",
+            "Identity Verified",
+            "Your documents have passed all automated checks.",
+          ],
+          rejected: [
+            "✗ Rejected",
+            "status-rejected",
+            "Verification Failed",
+            app.rejection_reason || "Documents did not pass verification.",
+          ],
+          pending_onfido: [
+            "⟳ External Review",
+            "status-pending",
+            "Sent to Onfido",
+            "One or more checks failed. Onfido is independently reviewing your document and selfie.",
+          ],
+          reviewing: [
+            "◎ Manual Review",
+            "status-reviewing",
+            "Under Manual Review",
+            "An agent will review your submission shortly.",
+          ],
+        };
+
+        const [badge, cls, title, sub] = statusMap[app.status] || [
+          "⏳ Processing",
+          "status-processing",
+          "Processing…",
+          "",
+        ];
+        document.getElementById("statusBadge").textContent = badge;
+        document.getElementById("statusBadge").className =
+          "result-status " + cls;
+        document.getElementById("resultTitle").textContent = title;
+        document.getElementById("resultSubtitle").textContent = sub;
+
+        if (risk !== null) {
+          document.getElementById("metricsGrid").style.display = "";
+
+          const rv = Math.round(risk);
+          document.getElementById("riskValue").textContent = rv + " / 100";
+          document.getElementById("riskBar").style.width = rv + "%";
+          const riskCell = document.getElementById("riskCell");
+          if (rv < 50) {
+            riskCell.className = "metric-cell risk-low";
+            document.getElementById("riskSub").textContent =
+              "Low risk — internal";
+          } else if (rv < 75) {
+            riskCell.className = "metric-cell risk-mid";
+            document.getElementById("riskSub").textContent =
+              "Medium risk — Onfido";
+          } else {
+            riskCell.className = "metric-cell risk-high";
+            document.getElementById("riskSub").textContent =
+              "High risk — Onfido";
+          }
+
+          const face = v.face_match || {};
+          document.getElementById("faceValue").textContent =
+            face.score != null ? Math.round(face.score) + "%" : "—";
+          document.getElementById("faceSub").textContent =
+            face.score != null
+              ? face.score >= 60
+                ? "✓ Match confirmed"
+                : "✗ No match"
+              : "—";
+
+          const live = v.liveness || {};
+          document.getElementById("liveValue").textContent =
+            live.score != null ? Math.round(live.score) + "%" : "—";
+          document.getElementById("liveSub").textContent = live.is_live
+            ? "✓ Live detected"
+            : live.score != null
+              ? "✗ Not detected"
+              : "—";
+
+          const exp = v.expiry || {};
+          document.getElementById("expiryValue").textContent =
+            exp.expiry_date || "—";
+          document.getElementById("expirySub").textContent = exp.is_expired
+            ? "✗ Expired"
+            : exp.is_expiring_soon
+              ? "⚠ Expiring soon"
+              : exp.expiry_date
+                ? "✓ Valid"
+                : exp.error || "Could not extract";
+        }
+
+        // Checks list
+        const fake = v.fake_document || {};
+        const checks = [
+          {
+            name: "Document Authenticity",
+            value: fake.is_fake ? "Suspicious" : "Passed",
+            dot: fake.is_fake ? "dot-red" : "dot-green",
+            note:
+              fake.reasons?.[0] ||
+              (fake.is_fake ? "" : "No tampering detected"),
+          },
+          {
+            name: "Expiry Check",
+            value: (v.expiry || {}).is_valid
+              ? "Valid"
+              : (v.expiry || {}).is_expired
+                ? "Expired"
+                : "Unverified",
+            dot: (v.expiry || {}).is_valid
+              ? "dot-green"
+              : (v.expiry || {}).is_expired
+                ? "dot-red"
+                : "dot-amber",
+            note: (v.expiry || {}).expiry_date
+              ? "Expires " + (v.expiry || {}).expiry_date
+              : "",
+          },
+          {
+            name: "Face Match",
+            value: (v.face_match || {}).match ? "Matched" : "No match",
+            dot: (v.face_match || {}).match ? "dot-green" : "dot-red",
+            note:
+              v.face_match?.score != null
+                ? `Score: ${Math.round(v.face_match.score)}%`
+                : "",
+          },
+          {
+            name: "Liveness Detection",
+            value: (v.liveness || {}).is_live ? "Live" : "Failed",
+            dot: (v.liveness || {}).is_live ? "dot-green" : "dot-amber",
+            note:
+              v.liveness?.score != null
+                ? `Score: ${Math.round(v.liveness.score)}%`
+                : "",
+          },
+          {
+            name: "Verification Method",
+            value: v.method === "onfido" ? "Onfido (External)" : "Internal",
+            dot: v.method === "onfido" ? "dot-blue" : "dot-green",
+            note:
+              v.method === "onfido"
+                ? ((app.onfido_data || {}).escalation_reasons || []).join(
+                    " · ",
+                  ) || "Escalated for review"
+                : "All checks passed internally",
+          },
+        ];
+
+        document.getElementById("checksContainer").innerHTML = checks
+          .map(
+            (c) => `
+      <div class="check-item">
+        <div class="check-dot ${c.dot}"></div>
+        <div class="check-name">
+          ${c.name}
+          ${c.note ? `<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:2px">${c.note}</div>` : ""}
+        </div>
+        <div class="check-val">${c.value}</div>
+      </div>`,
+          )
+          .join("");
+        document.getElementById("checksList").style.display = "";
+
+        // Route badge
+        const rb = document.getElementById("routeBadge");
+        rb.style.display = "";
+        if (app.status === "rejected") {
+          rb.innerHTML = `<div class="route-badge route-rejected"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="route-text"><strong>Verification Rejected</strong><p>${app.rejection_reason || "Did not pass automated verification."}</p></div></div>`;
+        } else if (v.method === "onfido") {
+          const runId = (app.onfido_data || {}).workflow_run_id || "—";
+          const escalationReasons =
+            (app.onfido_data || {}).escalation_reasons || [];
+          const reasonsHtml = escalationReasons.length
+            ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px">${escalationReasons.map((r) => `<span style="background:rgba(37,99,235,0.1);color:#1e40af;font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:4px;font-family:monospace">${r}</span>`).join("")}</div>`
+            : "";
+          rb.innerHTML = `<div class="route-badge route-onfido"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="route-text"><strong>Escalated to Onfido</strong><p>One or more checks failed the threshold. Onfido is independently verifying your document and selfie.${reasonsHtml}<span style="display:block;font-family:monospace;font-size:0.68rem;opacity:0.5;margin-top:5px">${runId}</span></p></div></div>`;
+        } else {
+          rb.innerHTML = `<div class="route-badge route-internal"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div class="route-text"><strong>Internally Approved</strong><p>Risk score &lt; 50. All checks passed our automated pipeline.</p></div></div>`;
+        }
+
+        document.getElementById("pollingWrap").style.display = "none";
+        document.getElementById("restartBtn").style.display = "";
+      }
+
+      /* ── Helpers ──────────────────────────────────────────────────────────── */
+      function restartFlow() {
+        clearInterval(pollTimer);
+        stopCamera();
+        currentAppId = null;
+        files = {};
+        selfieMode = "camera";
+
+        ["document_front", "document_back", "selfie_photo"].forEach((f) => {
+          const el = document.getElementById(f);
+          if (el) el.value = "";
+          const fn = document.getElementById("fname-" + f);
+          if (fn) fn.textContent = "";
+        });
+        ["zone-front", "zone-back"].forEach((id) =>
+          document.getElementById(id)?.classList.remove("has-file"),
+        );
+        document
+          .querySelectorAll(".doc-type-btn")
+          .forEach((b) => b.classList.remove("selected"));
+        document
+          .querySelector('[data-type="passport"]')
+          .classList.add("selected");
+
+        // Reset back zone
+        const bz = document.getElementById("zone-back");
+        bz.style.opacity = "0.4";
+        bz.style.pointerEvents = "none";
+        bz.classList.remove("has-file");
+
+        // Reset selfie card
+        switchSelfieMode("camera");
+        document.getElementById("cameraIdle").style.display = "";
+        document.getElementById("cameraError").style.display = "none";
+        document.getElementById("capturePreview").style.display = "none";
+        document.getElementById("btn-camera").classList.add("active");
+        document.getElementById("btn-upload-selfie").classList.remove("active");
+
+        // Reset step 2
+        document.getElementById("statusBadge").textContent = "⏳ Processing";
+        document.getElementById("statusBadge").className =
+          "result-status status-processing";
+        document.getElementById("resultTitle").textContent =
+          "Analysing your documents…";
+        document.getElementById("resultSubtitle").textContent =
+          "This usually takes a few seconds.";
+        document.getElementById("appIdText").textContent = "—";
+        document.getElementById("metricsGrid").style.display = "none";
+        document.getElementById("checksList").style.display = "none";
+        document.getElementById("routeBadge").style.display = "none";
+        document.getElementById("pollingWrap").style.display = "";
+        document.getElementById("restartBtn").style.display = "none";
+
+        // Nav
+        document.getElementById("step-2").classList.remove("active");
+        document.getElementById("step-1").classList.add("active");
+        document.getElementById("nav-step-2").classList.remove("active");
+        document.getElementById("nav-step-1").classList.remove("done");
+        document.getElementById("nav-step-1").classList.add("active");
+        document.querySelector("#nav-step-1 .step-num").textContent = "1";
+
+        hideError();
+        setLoading(false);
+      }
+
+      function setLoading(on) {
+        const btn = document.getElementById("submitBtn");
+        btn.classList.toggle("loading", on);
+        btn.disabled = on;
+      }
+      function showError(msg) {
+        const el = document.getElementById("errorBanner");
+        el.textContent = msg;
+        el.classList.add("show");
+        el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+      function hideError() {
+        document.getElementById("errorBanner").classList.remove("show");
+      }
+      function copyAppId() {
+        if (!currentAppId) return;
+        navigator.clipboard.writeText(currentAppId).catch(() => {});
+        const el = document.getElementById("appIdText");
+        const orig = el.textContent;
+        el.textContent = "Copied!";
+        setTimeout(() => (el.textContent = orig), 1500);
+      }
+
+      /* ── Init ────────────────────────────────────────────────────────────── */
+      // Passport back always dimmed by default
+      document.getElementById("zone-back").style.opacity = "0.4";
+      document.getElementById("zone-back").style.pointerEvents = "none";
+    </script>
+  </body>
+</html>

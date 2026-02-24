@@ -1,0 +1,1622 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KYC Admin</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --ink: #0d0f12;
+        --soft: #4a5260;
+        --line: #e4e7ed;
+        --surface: #f7f8fa;
+        --white: #fff;
+        --navy: #1a1f2e;
+        --green: #16a34a;
+        --red: #dc2626;
+        --amber: #d97706;
+        --blue: #2563eb;
+        --purple: #7c3aed;
+        --r: 12px;
+      }
+      body {
+        font-family: "DM Sans", sans-serif;
+        background: var(--surface);
+        color: var(--ink);
+        min-height: 100vh;
+      }
+
+      /* ─ Top bar ─ */
+      .bar {
+        background: var(--navy);
+        height: 56px;
+        padding: 0 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 200;
+      }
+      .bar-logo {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 0.95rem;
+        letter-spacing: -0.02em;
+        color: #fff;
+      }
+      .bar-logo .mk {
+        width: 28px;
+        height: 28px;
+        background: #fff;
+        border-radius: 7px;
+        display: grid;
+        place-items: center;
+      }
+      .bar-logo .mk svg {
+        width: 16px;
+        height: 16px;
+      }
+      .bar-tag {
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.07);
+        padding: 4px 10px;
+        border-radius: 6px;
+      }
+      .btn-sm {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 13px;
+        border-radius: 7px;
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-sm:hover {
+        background: rgba(255, 255, 255, 0.15);
+      }
+
+      /* ─ Stats strip ─ */
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 1px;
+        background: var(--line);
+        border-bottom: 1px solid var(--line);
+      }
+      .sc {
+        background: var(--white);
+        padding: 14px 20px;
+      }
+      .sc-l {
+        font-size: 0.64rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--soft);
+        margin-bottom: 5px;
+      }
+      .sc-v {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.5rem;
+        letter-spacing: -0.03em;
+      }
+      .c-g {
+        color: var(--green);
+      }
+      .c-r {
+        color: var(--red);
+      }
+      .c-b {
+        color: var(--blue);
+      }
+      .c-a {
+        color: var(--amber);
+      }
+      .c-p {
+        color: var(--purple);
+      }
+
+      /* ─ Filters ─ */
+      .fil {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 28px;
+        border-bottom: 1px solid var(--line);
+        background: var(--white);
+        flex-wrap: wrap;
+      }
+      .fb {
+        padding: 6px 14px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        font-size: 0.74rem;
+        font-weight: 600;
+        color: var(--soft);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .fb:hover {
+        border-color: #a0aab8;
+        color: var(--ink);
+      }
+      .fb.on {
+        background: var(--navy);
+        color: #fff;
+        border-color: var(--navy);
+      }
+      .sep {
+        flex: 1;
+      }
+      .srch {
+        position: relative;
+      }
+      .srch svg {
+        position: absolute;
+        left: 9px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--soft);
+        pointer-events: none;
+      }
+      .srch input {
+        padding: 6px 11px 6px 30px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        font-size: 0.74rem;
+        font-family: "DM Sans", sans-serif;
+        width: 200px;
+        outline: none;
+        background: var(--surface);
+      }
+      .srch input:focus {
+        border-color: #a0aab8;
+        background: var(--white);
+      }
+
+      /* ─ Table ─ */
+      .tw {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--white);
+      }
+      thead th {
+        padding: 11px 18px;
+        text-align: left;
+        font-size: 0.63rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--soft);
+        border-bottom: 2px solid var(--line);
+        white-space: nowrap;
+        position: sticky;
+        top: 56px;
+        background: var(--white);
+      }
+      tbody tr {
+        border-bottom: 1px solid var(--surface);
+        transition: background 0.12s;
+        cursor: pointer;
+      }
+      tbody tr:hover {
+        background: #f0f4ff;
+      }
+      td {
+        padding: 13px 18px;
+        font-size: 0.8rem;
+        vertical-align: middle;
+      }
+      .mono {
+        font-family: "DM Mono", monospace;
+        font-size: 0.72rem;
+        color: var(--soft);
+      }
+      .dt {
+        font-size: 0.72rem;
+        color: var(--soft);
+        white-space: nowrap;
+        text-transform: capitalize;
+      }
+      .rv {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 0.95rem;
+      }
+      .rl {
+        color: var(--green);
+      }
+      .rm {
+        color: var(--amber);
+      }
+      .rh {
+        color: var(--red);
+      }
+
+      /* badges */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 5px;
+        font-size: 0.64rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .b-approved {
+        background: #dcfce7;
+        color: #14532d;
+      }
+      .b-rejected {
+        background: #fee2e2;
+        color: #7f1d1d;
+      }
+      .b-pending_onfido {
+        background: #dbeafe;
+        color: #1e3a8a;
+      }
+      .b-processing {
+        background: #fef9c3;
+        color: #92400e;
+      }
+      .b-reviewing {
+        background: #f3e8ff;
+        color: #4c1d95;
+      }
+      .b-int {
+        background: #f0fdf4;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+      }
+      .b-onf {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border: 1px solid #bfdbfe;
+      }
+
+      /* row actions */
+      .acts {
+        display: flex;
+        gap: 5px;
+      }
+      .btn-v {
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--line);
+        background: var(--white);
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--soft);
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-v:hover {
+        background: var(--surface);
+        color: var(--ink);
+      }
+      .btn-ap {
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: none;
+        background: #dcfce7;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #15803d;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-ap:hover {
+        background: #bbf7d0;
+      }
+      .btn-rj {
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: none;
+        background: #fee2e2;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: #b91c1c;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-rj:hover {
+        background: #fecaca;
+      }
+      .empty-row td {
+        text-align: center;
+        padding: 48px;
+        color: var(--soft);
+        font-size: 0.82rem;
+      }
+
+      /* ─ Modal overlay ─ */
+      .ov {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.48);
+        backdrop-filter: blur(4px);
+        z-index: 300;
+        display: none;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 24px;
+        overflow-y: auto;
+      }
+      .ov.show {
+        display: flex;
+      }
+      .md {
+        background: var(--white);
+        border-radius: 18px;
+        width: 100%;
+        max-width: 780px;
+        margin: auto;
+        box-shadow: 0 28px 90px rgba(0, 0, 0, 0.25);
+        animation: slideUp 0.2s ease;
+      }
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(16px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* modal header */
+      .mh {
+        padding: 24px 28px 18px;
+        border-bottom: 1px solid var(--line);
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        border-radius: 18px 18px 0 0;
+      }
+      .mh-left .mid {
+        font-family: "DM Mono", monospace;
+        font-size: 0.68rem;
+        color: var(--soft);
+        margin-bottom: 5px;
+      }
+      .mh-left .mtitle {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.2rem;
+        letter-spacing: -0.02em;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-x {
+        width: 30px;
+        height: 30px;
+        border-radius: 7px;
+        border: 1px solid var(--line);
+        background: var(--surface);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        color: var(--soft);
+        flex-shrink: 0;
+        transition: all 0.15s;
+      }
+      .btn-x:hover {
+        background: var(--line);
+        color: var(--ink);
+      }
+
+      /* modal body */
+      .mb {
+        padding: 24px 28px;
+      }
+
+      /* section label */
+      .sl {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.66rem;
+        letter-spacing: 0.09em;
+        text-transform: uppercase;
+        color: var(--soft);
+        margin-bottom: 12px;
+        padding-bottom: 7px;
+        border-bottom: 1px solid var(--surface);
+      }
+
+      /* ─ Onfido result card ─ */
+      .onf-card {
+        border-radius: 13px;
+        overflow: hidden;
+        margin-bottom: 22px;
+        border: 1px solid #bfdbfe;
+      }
+      .onf-head {
+        background: #1e3a8a;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .onf-head-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .onf-head-left svg {
+        color: #93c5fd;
+      }
+      .onf-head-left span {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #fff;
+      }
+      .onf-head-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .os-badge {
+        padding: 4px 11px;
+        border-radius: 5px;
+        font-size: 0.63rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .os-processing {
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.8);
+      }
+      .os-approved {
+        background: #16a34a;
+        color: #fff;
+      }
+      .os-declined {
+        background: #dc2626;
+        color: #fff;
+      }
+      .os-review {
+        background: #7c3aed;
+        color: #fff;
+      }
+      .btn-poll {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 14px;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 7px;
+        color: #fff;
+        font-size: 0.73rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+        font-family: "DM Sans", sans-serif;
+      }
+      .btn-poll:hover {
+        background: rgba(255, 255, 255, 0.22);
+      }
+      .btn-poll:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-poll .spin {
+        width: 13px;
+        height: 13px;
+        border: 2px solid rgba(255, 255, 255, 0.25);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.65s linear infinite;
+        display: none;
+      }
+      .btn-poll.ld .spin {
+        display: block;
+      }
+      .btn-poll.ld .pl {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .onf-body {
+        background: #eff6ff;
+        padding: 18px 20px;
+      }
+
+      /* final verdict box */
+      .verdict {
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .verdict.vp {
+        background: #dcfce7;
+        border: 1px solid #86efac;
+      }
+      .verdict.vr {
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+      }
+      .verdict.vw {
+        background: #fef9c3;
+        border: 1px solid #fde047;
+      }
+      .verdict-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .vp .verdict-icon {
+        background: #16a34a;
+      }
+      .vr .verdict-icon {
+        background: #dc2626;
+      }
+      .vw .verdict-icon {
+        background: #d97706;
+      }
+      .verdict-text strong {
+        display: block;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.88rem;
+        margin-bottom: 3px;
+      }
+      .verdict-text p {
+        font-size: 0.74rem;
+        color: var(--soft);
+      }
+
+      /* meta grid */
+      .onf-meta {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+      .om-item .ol {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #3b82f6;
+        margin-bottom: 3px;
+      }
+      .om-item .ov {
+        font-size: 0.75rem;
+        color: #1e3a8a;
+        font-weight: 500;
+        word-break: break-all;
+        font-family: "DM Mono", monospace;
+      }
+
+      /* escalation reasons */
+      .esc-wrap {
+        margin-bottom: 12px;
+      }
+      .esc-label {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #3b82f6;
+        margin-bottom: 6px;
+      }
+      .chip {
+        display: inline-block;
+        background: rgba(37, 99, 235, 0.12);
+        color: #1d4ed8;
+        font-size: 0.66rem;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 4px;
+        margin: 2px;
+        font-family: "DM Mono", monospace;
+      }
+
+      /* output */
+      .onf-out {
+        background: rgba(255, 255, 255, 0.55);
+        border-radius: 8px;
+        padding: 11px;
+        font-family: "DM Mono", monospace;
+        font-size: 0.69rem;
+        color: #1e3a8a;
+        max-height: 130px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin-bottom: 10px;
+      }
+      .poll-msg {
+        font-size: 0.73rem;
+        min-height: 18px;
+        margin-top: 6px;
+        font-weight: 500;
+      }
+
+      /* ─ Score cards ─ */
+      .scores {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+        margin-bottom: 22px;
+      }
+      .sc-card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 14px 16px;
+      }
+      .sc-card .l {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--soft);
+        margin-bottom: 5px;
+      }
+      .sc-card .v {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.25rem;
+        letter-spacing: -0.02em;
+        line-height: 1;
+      }
+      .sc-card .s {
+        font-size: 0.68rem;
+        color: var(--soft);
+        margin-top: 4px;
+      }
+      .rb-wrap {
+        height: 4px;
+        background: var(--line);
+        border-radius: 2px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      .rb {
+        height: 100%;
+        border-radius: 2px;
+      }
+
+      /* ─ Checks list ─ */
+      .chk-list {
+        margin-bottom: 22px;
+      }
+      .chk-row {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--surface);
+      }
+      .chk-row:last-child {
+        border-bottom: none;
+      }
+      .dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .dg {
+        background: var(--green);
+      }
+      .dr {
+        background: var(--red);
+      }
+      .da {
+        background: var(--amber);
+      }
+      .db {
+        background: var(--blue);
+      }
+      .dx {
+        background: #cbd5e1;
+      }
+      .chk-n {
+        flex: 1;
+      }
+      .chk-n .cn {
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+      .chk-n .ct {
+        font-size: 0.67rem;
+        color: var(--soft);
+        margin-top: 2px;
+      }
+      .chk-v {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.77rem;
+      }
+
+      /* ─ OCR panel ─ */
+      .ocr-panel {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 22px;
+      }
+      .ocr-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .og-item .ol {
+        font-size: 0.62rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--soft);
+        margin-bottom: 3px;
+      }
+      .og-item .ov {
+        font-size: 0.78rem;
+        font-weight: 500;
+      }
+
+      /* ─ File thumbs ─ */
+      .thumbs {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 22px;
+      }
+      .thumb {
+        border-radius: 9px;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        width: 150px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .thumb:hover {
+        border-color: #a0aab8;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+      }
+      .thumb img {
+        width: 100%;
+        height: 95px;
+        object-fit: cover;
+        display: block;
+        background: #eee;
+      }
+      .thumb .tl {
+        padding: 6px 9px;
+        font-size: 0.63rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--soft);
+        background: var(--surface);
+      }
+
+      /* ─ Review actions ─ */
+      .rev-actions {
+        display: flex;
+        gap: 10px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+      .btn-apv {
+        flex: 1;
+        padding: 11px;
+        background: #dcfce7;
+        border: none;
+        border-radius: 9px;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: #15803d;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-apv:hover {
+        background: #bbf7d0;
+      }
+      .btn-rej {
+        flex: 1;
+        padding: 11px;
+        background: #fee2e2;
+        border: none;
+        border-radius: 9px;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: #b91c1c;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .btn-rej:hover {
+        background: #fecaca;
+      }
+
+      @media (max-width: 900px) {
+        .stats {
+          grid-template-columns: repeat(3, 1fr);
+        }
+        .scores {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .ocr-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      @media (max-width: 600px) {
+        .mb {
+          padding: 18px;
+        }
+        .onf-meta {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top bar -->
+    <header class="bar">
+      <div class="bar-logo">
+        <div class="mk">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+            />
+          </svg>
+        </div>
+        VerifyKYC
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px">
+        <span class="bar-tag">Admin</span>
+        <button class="btn-sm" onclick="loadAll()">
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path d="M1 4v6h6M23 20v-6h-6" />
+            <path
+              d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
+            />
+          </svg>
+          Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats">
+      <div class="sc">
+        <div class="sc-l">Total</div>
+        <div class="sc-v" id="s-tot">—</div>
+      </div>
+      <div class="sc">
+        <div class="sc-l">Approved</div>
+        <div class="sc-v c-g" id="s-app">—</div>
+      </div>
+      <div class="sc">
+        <div class="sc-l">Rejected</div>
+        <div class="sc-v c-r" id="s-rej">—</div>
+      </div>
+      <div class="sc">
+        <div class="sc-l">Onfido Review</div>
+        <div class="sc-v c-b" id="s-onf">—</div>
+      </div>
+      <div class="sc">
+        <div class="sc-l">Processing</div>
+        <div class="sc-v c-a" id="s-pro">—</div>
+      </div>
+      <div class="sc">
+        <div class="sc-l">Approval Rate</div>
+        <div class="sc-v c-p" id="s-rate">—</div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="fil">
+      <button class="fb on" onclick="setFilter(this, 'all')">All</button>
+      <button class="fb" onclick="setFilter(this, 'processing')">
+        Processing
+      </button>
+      <button class="fb" onclick="setFilter(this, 'approved')">Approved</button>
+      <button class="fb" onclick="setFilter(this, 'rejected')">Rejected</button>
+      <button class="fb" onclick="setFilter(this, 'pending_onfido')">
+        Onfido Review
+      </button>
+      <button class="fb" onclick="setFilter(this, 'reviewing')">
+        Manual Review
+      </button>
+      <div class="sep"></div>
+      <div class="srch">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="M21 21l-4.35-4.35" />
+        </svg>
+        <input
+          placeholder="Search application ID…"
+          oninput="renderTable()"
+          id="srchBox"
+        />
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="tw">
+      <table>
+        <thead>
+          <tr>
+            <th>Application ID</th>
+            <th>Doc Type</th>
+            <th>Status</th>
+            <th>Risk Score</th>
+            <th>Method</th>
+            <th>Submitted</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tbody">
+          <tr class="empty-row">
+            <td colspan="7">Loading…</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Modal -->
+    <div class="ov" id="ov" onclick="closeBg(event)">
+      <div class="md" id="md">
+        <div class="mh">
+          <div class="mh-left">
+            <div class="mid" id="m-id">—</div>
+            <div class="mtitle" id="m-title">—</div>
+          </div>
+          <button class="btn-x" onclick="closeModal()">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div class="mb" id="mb"></div>
+      </div>
+    </div>
+
+    <script>
+      /* ═══════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════ */
+      let allApps = [],
+        activeFilter = "all",
+        currentApp = null;
+
+      /* ═══════════════════════════════════════════════════════════
+   BOOT
+═══════════════════════════════════════════════════════════ */
+      loadAll();
+
+      async function loadAll() {
+        await Promise.all([fetchStats(), fetchApps()]);
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+   STATS
+═══════════════════════════════════════════════════════════ */
+      async function fetchStats() {
+        try {
+          const d = await api("/api/stats");
+          const s = d.stats || {};
+          setText("s-tot", s.total ?? "—");
+          setText("s-app", s.approved ?? "—");
+          setText("s-rej", s.rejected ?? "—");
+          setText("s-onf", s.pending_onfido ?? "—");
+          setText("s-pro", s.processing ?? "—");
+          setText("s-rate", (s.approval_rate ?? "—") + "%");
+        } catch {}
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+   APPLICATIONS LIST
+═══════════════════════════════════════════════════════════ */
+      async function fetchApps() {
+        try {
+          const d = await api("/api/applications?limit=300");
+          allApps = d.applications || [];
+          renderTable();
+        } catch {
+          document.getElementById("tbody").innerHTML =
+            '<tr class="empty-row"><td colspan="7">Failed to load — check server.</td></tr>';
+        }
+      }
+
+      function setFilter(btn, f) {
+        document
+          .querySelectorAll(".fb")
+          .forEach((b) => b.classList.remove("on"));
+        btn.classList.add("on");
+        activeFilter = f;
+        renderTable();
+      }
+
+      function renderTable() {
+        const q = document.getElementById("srchBox").value.toLowerCase().trim();
+        let apps =
+          activeFilter === "all"
+            ? allApps
+            : allApps.filter((a) => a.status === activeFilter);
+        if (q)
+          apps = apps.filter((a) => a.application_id.toLowerCase().includes(q));
+
+        const tbody = document.getElementById("tbody");
+        if (!apps.length) {
+          tbody.innerHTML =
+            '<tr class="empty-row"><td colspan="7">No applications found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = apps
+          .map((a) => {
+            const v = a.verification || {};
+            const risk = v.risk_score ?? null;
+            const rc =
+              risk === null ? "" : risk < 50 ? "rl" : risk < 75 ? "rm" : "rh";
+            const dt = (a.document_type || "—").replace(/_/g, " ");
+            const date = a.created_at ? fmtDate(a.created_at) : "—";
+            const canReview = [
+              "reviewing",
+              "pending_onfido",
+              "processing",
+            ].includes(a.status);
+            const meth = v.method;
+
+            return `<tr onclick="openModal('${a.application_id}')">
+      <td class="mono">${a.application_id}</td>
+      <td class="dt">${dt}</td>
+      <td>${badge(a.status)}</td>
+      <td class="rv ${rc}">${risk !== null ? risk : "—"}</td>
+      <td>${meth === "onfido" ? '<span class="badge b-onf">Onfido</span>' : meth === "internal" ? '<span class="badge b-int">Internal</span>' : '<span style="color:var(--soft);font-size:.74rem">—</span>'}</td>
+      <td class="dt">${date}</td>
+      <td onclick="event.stopPropagation()">
+        <div class="acts">
+          <button class="btn-v" onclick="openModal('${a.application_id}')">View</button>
+          ${
+            canReview
+              ? `<button class="btn-ap" onclick="qAction('${a.application_id}','approve')">Approve</button>
+          <button class="btn-rj" onclick="qAction('${a.application_id}','reject')">Reject</button>`
+              : ""
+          }
+        </div>
+      </td>
+    </tr>`;
+          })
+          .join("");
+      }
+
+      function badge(s) {
+        const lbl = {
+          approved: "✓ Approved",
+          rejected: "✗ Rejected",
+          pending_onfido: "⟳ Onfido",
+          processing: "⏳ Processing",
+          reviewing: "◎ Review",
+        };
+        return `<span class="badge b-${s}">${lbl[s] || s}</span>`;
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+   MODAL — open + auto-poll Onfido if pending
+═══════════════════════════════════════════════════════════ */
+      async function openModal(appId) {
+        setText("m-id", appId);
+        setText("m-title", "Loading…");
+        document.getElementById("mb").innerHTML =
+          '<div style="padding:48px;text-align:center;color:var(--soft)">Loading…</div>';
+        document.getElementById("ov").classList.add("show");
+
+        try {
+          const d = await api(`/api/applications/${appId}`);
+          currentApp = d.application;
+
+          // Auto-poll Onfido if still pending — get latest result before rendering
+          if (
+            currentApp.status === "pending_onfido" ||
+            currentApp.status === "reviewing"
+          ) {
+            try {
+              const pr = await api(`/api/applications/${appId}/onfido-result`);
+              if (pr.success && pr.application) currentApp = pr.application;
+            } catch {}
+          }
+
+          renderModal(currentApp);
+        } catch {
+          document.getElementById("mb").innerHTML =
+            '<div style="padding:48px;text-align:center;color:var(--red)">Failed to load.</div>';
+        }
+      }
+
+      function renderModal(app) {
+        const v = app.verification || {};
+        const face = v.face_match || {};
+        const live = v.liveness || {};
+        const exp = v.expiry || {};
+        const fake = v.fake_document || {};
+        const onf = app.onfido_data || {};
+        const ocr = app.ocr_data || {};
+
+        // Header
+        setText("m-id", app.application_id);
+        document.getElementById("m-title").innerHTML =
+          badge(app.status) +
+          `<span style="font-family:'DM Sans';font-weight:400;font-size:.82rem;color:var(--soft);text-transform:capitalize">&nbsp;${(app.document_type || "").replace(/_/g, " ")}</span>`;
+
+        const risk = v.risk_score ?? null;
+        const rc =
+          risk === null ? "" : risk < 50 ? "rl" : risk < 75 ? "rm" : "rh";
+        const rbColor =
+          risk === null
+            ? "#cbd5e1"
+            : risk < 50
+              ? "#16a34a"
+              : risk < 75
+                ? "#d97706"
+                : "#dc2626";
+
+        /* ── Onfido result card ── */
+        let onfHtml = "";
+        if (v.method === "onfido" || onf.workflow_run_id) {
+          const os = onf.status || "processing";
+          const osCls =
+            {
+              approved: "os-approved",
+              declined: "os-declined",
+              review: "os-review",
+              processing: "os-processing",
+            }[os] || "os-processing";
+          const reasons = onf.escalation_reasons || [];
+          const output = onf.output;
+          const isDone =
+            ["approved", "declined", "review"].includes(os) && onf.completed_at;
+
+          // Final verdict block
+          let verdictHtml = "";
+          if (os === "approved") {
+            verdictHtml = `<div class="verdict vp"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M20 6L9 17l-5-5"/></svg></div><div class="verdict-text"><strong>Onfido Approved</strong><p>Identity successfully verified by Onfido.</p></div></div>`;
+          } else if (os === "declined") {
+            verdictHtml = `<div class="verdict vr"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M18 6L6 18M6 6l12 12"/></svg></div><div class="verdict-text"><strong>Onfido Declined</strong><p>Verification declined by Onfido. ${app.rejection_reason || ""}</p></div></div>`;
+          } else if (os === "review") {
+            verdictHtml = `<div class="verdict vw"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M12 9v4M12 17h.01"/></svg></div><div class="verdict-text"><strong>Manual Review Required</strong><p>Onfido flagged this for human review.</p></div></div>`;
+          }
+
+          const outputHtml =
+            output && Object.keys(output).length
+              ? `<div class="onf-out">${JSON.stringify(output, null, 2)}</div>`
+              : "";
+
+          onfHtml = `
+    <div class="sl">Onfido External Verification</div>
+    <div class="onf-card">
+      <div class="onf-head">
+        <div class="onf-head-left">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Onfido Verification Result</span>
+        </div>
+        <div class="onf-head-right">
+          <span class="os-badge ${osCls}">${os}</span>
+          <button class="btn-poll" id="pollBtn" onclick="doPoll('${app.application_id}')">
+            <div class="spin"></div>
+            <span class="pl">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-1px;margin-right:3px"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>Refresh
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="onf-body">
+        ${verdictHtml}
+        <div class="onf-meta">
+          <div class="om-item"><div class="ol">Applicant ID</div><div class="ov">${onf.applicant_id || "—"}</div></div>
+          <div class="om-item"><div class="ol">Workflow Run ID</div><div class="ov">${onf.workflow_run_id || "—"}</div></div>
+          <div class="om-item"><div class="ol">Submitted</div><div class="ov">${onf.submitted_at ? new Date(onf.submitted_at).toLocaleString() : "—"}</div></div>
+          <div class="om-item"><div class="ol">Completed</div><div class="ov">${onf.completed_at ? new Date(onf.completed_at).toLocaleString() : "—"}</div></div>
+          ${onf.last_polled ? `<div class="om-item"><div class="ol">Last Checked</div><div class="ov">${new Date(onf.last_polled).toLocaleString()}</div></div>` : ""}
+        </div>
+        ${reasons.length ? `<div class="esc-wrap"><div class="esc-label">Escalation Reasons</div>${reasons.map((r) => `<span class="chip">${r}</span>`).join("")}</div>` : ""}
+        ${outputHtml}
+        <div class="poll-msg" id="pollMsg"></div>
+      </div>
+    </div>`;
+        }
+
+        /* ── Scores ── */
+        const faceScore = face.score ?? null;
+        const liveScore = live.score ?? null;
+        const faceColor =
+          faceScore === null
+            ? "var(--soft)"
+            : faceScore >= 50
+              ? "var(--green)"
+              : "var(--red)";
+        const liveColor =
+          liveScore === null
+            ? "var(--soft)"
+            : liveScore >= 50
+              ? "var(--green)"
+              : "var(--amber)";
+
+        const scoresHtml = `
+  <div class="sl">Verification Scores</div>
+  <div class="scores">
+    <div class="sc-card">
+      <div class="l">Risk Score</div>
+      <div class="v ${rc}">${risk !== null ? risk + " / 100" : "—"}</div>
+      <div class="s">${risk !== null ? (risk < 50 ? "Low risk" : risk < 75 ? "Medium risk" : "High risk") : "N/A"}</div>
+      <div class="rb-wrap"><div class="rb" style="width:${risk ?? 0}%;background:${rbColor}"></div></div>
+    </div>
+    <div class="sc-card">
+      <div class="l">Face Match</div>
+      <div class="v" style="color:${faceColor}">${faceScore !== null ? Math.round(faceScore) + "%" : "—"}</div>
+      <div class="s">${face.match ? "✓ Confirmed" : faceScore !== null ? "✗ No match" : "N/A"}</div>
+    </div>
+    <div class="sc-card">
+      <div class="l">Liveness</div>
+      <div class="v" style="color:${liveColor}">${liveScore !== null ? Math.round(liveScore) + "%" : "—"}</div>
+      <div class="s">${live.is_live ? "✓ Live detected" : liveScore !== null ? "✗ Failed" : "N/A"}</div>
+    </div>
+    <div class="sc-card">
+      <div class="l">Document Expiry</div>
+      <div class="v" style="font-size:.95rem;color:${exp.is_valid ? "var(--green)" : exp.is_expired ? "var(--red)" : "var(--soft)"}">${exp.expiry_date || "—"}</div>
+      <div class="s">${exp.is_expired ? "✗ Expired" : exp.is_expiring_soon ? "⚠ Soon" : exp.is_valid ? "✓ Valid" : exp.error || "N/A"}</div>
+    </div>
+  </div>`;
+
+        /* ── Checks ── */
+        const onf_reasons =
+          (onf.escalation_reasons || []).join(" · ") ||
+          "Escalated for external review";
+        const checks = [
+          {
+            name: "Document Authenticity",
+            dot: fake.is_fake ? "dr" : "dg",
+            val: fake.is_fake ? "Suspicious" : "Passed",
+            note:
+              fake.reasons?.[0] ||
+              (fake.is_fake ? "" : "No tampering detected"),
+          },
+          {
+            name: "Expiry Check",
+            dot: exp.is_valid ? "dg" : exp.is_expired ? "dr" : "da",
+            val: exp.is_valid
+              ? "Valid"
+              : exp.is_expired
+                ? "Expired"
+                : "Unverified",
+            note: exp.expiry_date
+              ? `Expires ${exp.expiry_date}`
+              : exp.error || "",
+          },
+          {
+            name: "Face Match",
+            dot: face.match ? "dg" : faceScore !== null ? "dr" : "dx",
+            val: faceScore !== null ? Math.round(faceScore) + "%" : "—",
+            note: face.match
+              ? "Identity confirmed"
+              : faceScore !== null
+                ? "Faces do not match"
+                : "Not checked",
+          },
+          {
+            name: "Liveness Detection",
+            dot: live.is_live ? "dg" : liveScore !== null ? "da" : "dx",
+            val: liveScore !== null ? Math.round(liveScore) + "%" : "—",
+            note: live.is_live
+              ? "Live person detected"
+              : liveScore !== null
+                ? "Failed"
+                : "Not checked",
+          },
+          {
+            name: "Verification Method",
+            dot:
+              v.method === "onfido"
+                ? "db"
+                : v.method === "internal"
+                  ? "dg"
+                  : "dx",
+            val:
+              v.method === "onfido"
+                ? "Onfido"
+                : v.method === "internal"
+                  ? "Internal"
+                  : "—",
+            note:
+              v.method === "onfido"
+                ? onf_reasons
+                : v.method === "internal"
+                  ? "All checks passed internally"
+                  : "",
+          },
+        ];
+
+        const chksHtml = `
+  <div class="sl">Checks Performed</div>
+  <div class="chk-list">
+    ${checks
+      .map(
+        (c) => `
+      <div class="chk-row">
+        <div class="dot ${c.dot}"></div>
+        <div class="chk-n"><div class="cn">${c.name}</div>${c.note ? `<div class="ct">${c.note}</div>` : ""}</div>
+        <div class="chk-v">${c.val}</div>
+      </div>`,
+      )
+      .join("")}
+  </div>`;
+
+        /* ── OCR data ── */
+        let ocrHtml = "";
+        if (ocr && Object.keys(ocr).length) {
+          const flds = [
+            { l: "Full Name", v: ocr.full_name },
+            { l: "Document No.", v: ocr.document_number },
+            { l: "Date of Birth", v: ocr.date_of_birth },
+            { l: "Issue Date", v: ocr.issue_date },
+            { l: "Expiry Date", v: ocr.expiry_date },
+            { l: "Nationality", v: ocr.nationality || ocr.license_class },
+          ].filter((f) => f.v && f.v !== "null" && f.v !== "N/A");
+
+          if (flds.length) {
+            ocrHtml = `
+      <div class="sl">OCR Extracted from Document</div>
+      <div class="ocr-panel">
+        <div class="ocr-grid">
+          ${flds.map((f) => `<div class="og-item"><div class="ol">${f.l}</div><div class="ov">${f.v}</div></div>`).join("")}
+        </div>
+      </div>`;
+          }
+        }
+
+        /* ── File thumbs ── */
+        const fileMap = app.files || {};
+        const fileFields = [
+          { k: "document_front", l: "Doc Front" },
+          { k: "document_back", l: "Doc Back" },
+          { k: "selfie_photo", l: "Selfie" },
+        ];
+        const fileItems = fileFields.filter((f) => fileMap[f.k]);
+        const filesHtml = fileItems.length
+          ? `
+  <div class="sl">Uploaded Documents</div>
+  <div class="thumbs">
+    ${fileItems
+      .map(
+        (f) => `
+      <div class="thumb" onclick="window.open('/api/files/${fileMap[f.k]}','_blank')">
+        <img src="/api/files/${fileMap[f.k]}" alt="${f.l}" onerror="this.style.display='none'"/>
+        <div class="tl">${f.l}</div>
+      </div>`,
+      )
+      .join("")}
+  </div>`
+          : "";
+
+        /* ── App meta ── */
+        const metaHtml = `
+  <div class="sl">Application Info</div>
+  <div class="ocr-panel" style="margin-bottom:18px">
+    <div class="ocr-grid">
+      <div class="og-item"><div class="ol">Application ID</div><div class="ov" style="font-family:'DM Mono',monospace;font-size:.72rem">${app.application_id}</div></div>
+      <div class="og-item"><div class="ol">Document Type</div><div class="ov" style="text-transform:capitalize">${(app.document_type || "—").replace(/_/g, " ")}</div></div>
+      <div class="og-item"><div class="ol">Submitted</div><div class="ov">${app.created_at ? new Date(app.created_at).toLocaleString() : "—"}</div></div>
+      ${app.reviewed_by ? `<div class="og-item"><div class="ol">Reviewed By</div><div class="ov">${app.reviewed_by}</div></div>` : ""}
+      ${app.rejection_reason ? `<div class="og-item" style="grid-column:1/-1"><div class="ol" style="color:var(--red)">Rejection Reason</div><div class="ov" style="color:var(--red)">${app.rejection_reason}</div></div>` : ""}
+    </div>
+  </div>`;
+
+        /* ── Review actions ── */
+        const canReview = [
+          "reviewing",
+          "pending_onfido",
+          "processing",
+        ].includes(app.status);
+        const revHtml = canReview
+          ? `
+  <div class="rev-actions">
+    <button class="btn-apv" onclick="mAction('${app.application_id}','approve')">✓ Approve</button>
+    <button class="btn-rej" onclick="mAction('${app.application_id}','reject')">✗ Reject</button>
+  </div>`
+          : "";
+
+        document.getElementById("mb").innerHTML =
+          onfHtml +
+          scoresHtml +
+          chksHtml +
+          ocrHtml +
+          filesHtml +
+          metaHtml +
+          revHtml;
+      }
+
+      function closeModal() {
+        document.getElementById("ov").classList.remove("show");
+        currentApp = null;
+      }
+      function closeBg(e) {
+        if (e.target === document.getElementById("ov")) closeModal();
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+   POLL ONFIDO RESULT
+═══════════════════════════════════════════════════════════ */
+      async function doPoll(appId) {
+        const btn = document.getElementById("pollBtn");
+        const msg = document.getElementById("pollMsg");
+        if (!btn) return;
+        btn.classList.add("ld");
+        btn.disabled = true;
+        if (msg) {
+          msg.textContent = "Fetching latest result from Onfido…";
+          msg.style.color = "#3b82f6";
+        }
+
+        try {
+          const d = await api(`/api/applications/${appId}/onfido-result`);
+          if (!d.success) throw new Error(d.error || "Failed");
+
+          if (msg) {
+            const os = d.onfido_status,
+              as_ = d.app_status;
+            msg.textContent = `Onfido: ${os} → Application: ${as_}`;
+            msg.style.color =
+              as_ === "approved"
+                ? "var(--green)"
+                : as_ === "rejected"
+                  ? "var(--red)"
+                  : "#1e40af";
+          }
+
+          // Re-render modal with latest data
+          if (d.application) {
+            currentApp = d.application;
+            setTimeout(() => renderModal(currentApp), 600);
+          }
+          loadAll();
+        } catch (e) {
+          if (msg) {
+            msg.textContent = "Error: " + e.message;
+            msg.style.color = "var(--red)";
+          }
+          if (btn) {
+            btn.classList.remove("ld");
+            btn.disabled = false;
+          }
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+   APPROVE / REJECT
+═══════════════════════════════════════════════════════════ */
+      async function qAction(appId, action) {
+        const reason =
+          action === "reject"
+            ? prompt("Rejection reason:") || "Failed manual review"
+            : "";
+        await doReview(appId, action, reason);
+        await loadAll();
+      }
+      async function mAction(appId, action) {
+        const reason =
+          action === "reject"
+            ? prompt("Rejection reason:") || "Failed manual review"
+            : "";
+        await doReview(appId, action, reason);
+        closeModal();
+        await loadAll();
+      }
+      async function doReview(appId, action, reason = "") {
+        try {
+          await fetch(`/api/applications/${appId}/review`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action,
+              reviewer: "admin",
+              notes: reason,
+              reason,
+            }),
+          });
+        } catch (e) {
+          alert("Failed: " + e.message);
+        }
+      }
+
+      /* ═══════════════════════════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════════════════════════ */
+      async function api(url) {
+        const r = await fetch(url);
+        const d = await r.json();
+        if (!r.ok || d.error) throw new Error(d.error || r.statusText);
+        return d;
+      }
+      function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      }
+      function fmtDate(iso) {
+        return new Date(iso).toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        });
+      }
+    </script>
+  </body>
+</html>
