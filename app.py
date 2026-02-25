@@ -421,7 +421,7 @@ def calculate_risk_score(face_score, liveness_score, fake_doc_confidence, expiry
 # ══════════════════════════════════════════════════════════════════════════════
 #  ONFIDO  — external verification triggered when risk >= 50
 #  Onfido checks: document authenticity, expiry, face match, fake-doc detection
-# ══════════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════════════════���══
 
 
 def send_to_onfido(app_id, ocr_name):
@@ -750,6 +750,43 @@ def run_verification(app_id):
 # ══════════════════════════════════════════════════════════════════════════════
 
 
+# ── Load country documents configuration ──────────────────────────────────────
+COUNTRY_CONFIG_PATH = os.path.join(
+    os.path.dirname(__file__), "config", "country_documents.json"
+)
+COUNTRY_DOCUMENTS = {}
+try:
+    with open(COUNTRY_CONFIG_PATH, "r") as f:
+        COUNTRY_DOCUMENTS = json.load(f)
+    print(
+        f"✓ Loaded {len(COUNTRY_DOCUMENTS.get('countries', []))} countries from config"
+    )
+except Exception as e:
+    print(f"✗ Failed to load country_documents.json: {e}")
+
+
+def validate_document_for_country(country_code, document_id):
+    """
+    Validates if a document is allowed for a specific country.
+    Returns (is_valid, message, doc_info)
+    """
+    countries = COUNTRY_DOCUMENTS.get("countries", [])
+    country = next((c for c in countries if c["code"] == country_code), None)
+
+    if not country:
+        return False, f"Country {country_code} not found", None
+
+    all_docs = country.get("identityDocuments", []) + country.get(
+        "addressDocuments", []
+    )
+    doc_info = next((d for d in all_docs if d["id"] == document_id), None)
+
+    if not doc_info:
+        return False, f"Document {document_id} not valid for {country_code}", None
+
+    return True, "Valid", doc_info
+
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -760,21 +797,116 @@ def admin():
     return render_template("admin.html")
 
 
+# ── GET /api/countries ────────────────────────────────────────────────────────
+@app.route("/api/countries", methods=["GET"])
+def list_countries():
+    """
+    Returns list of supported countries with their metadata.
+    Response: { "success": true, "countries": [ { "code": "GB", "name": "...", "region": "..." }, ... ] }
+    """
+    countries = COUNTRY_DOCUMENTS.get("countries", [])
+    country_list = [
+        {
+            "code": c["code"],
+            "name": c["name"],
+            "region": c.get("region", "Unknown"),
+        }
+        for c in countries
+    ]
+    return jsonify({"success": True, "countries": country_list})
+
+
+# ── GET /api/countries/<country_code>/documents ────────────────────────────────
+@app.route("/api/countries/<country_code>/documents", methods=["GET"])
+def get_country_documents(country_code):
+    """
+    Returns identity and address documents for a specific country.
+    Response: {
+      "success": true,
+      "country": "GB",
+      "identity_documents": [ { "id": "...", "name": "...", "description": "..." }, ... ],
+      "address_documents": [ { "id": "...", "name": "...", "description": "..." }, ... ]
+    }
+    """
+    countries = COUNTRY_DOCUMENTS.get("countries", [])
+    country = next((c for c in countries if c["code"] == country_code.upper()), None)
+
+    if not country:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": f"Country '{country_code}' not found",
+                }
+            ),
+            404,
+        )
+
+    return jsonify(
+        {
+            "success": True,
+            "country": country_code.upper(),
+            "identity_documents": country.get("identityDocuments", []),
+            "address_documents": country.get("addressDocuments", []),
+        }
+    )
+
+
 # ── POST /api/applications ────────────────────────────────────────────────────
 @app.route("/api/applications", methods=["POST"])
 def create_application():
     """
     Accepts multipart/form-data with:
-      document_type   : passport | drivers_license | national_id  (required)
+      country_code    : ISO 3166-1 alpha-2 (GB, US, CA, etc.) (required)
+      document_id     : document ID from country config (required)
+      document_type   : passport | drivers_license | national_id | address (required)
       document_front  : image file  (required)
       document_back   : image file  (optional — recommended for ID/license)
-      selfie_photo    : image file  (required)
+      selfie_photo    : image file  (required for identity verification)
 
     Stores files in GridFS, creates the record, triggers background verification.
     No personal info or address fields are collected.
     """
     try:
+        country_code = request.form.get("country_code", "").upper()
+        document_id = request.form.get("document_id", "")
         doc_type = request.form.get("document_type", "passport")
+
+        # Validate country and document exist in config
+        if not country_code:
+            return (
+                jsonify({"success": False, "error": "country_code is required"}),
+                400,
+            )
+
+        countries = COUNTRY_DOCUMENTS.get("countries", [])
+        country = next((c for c in countries if c["code"] == country_code), None)
+
+        if not country:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Country '{country_code}' not supported",
+                    }
+                ),
+                400,
+            )
+
+        # Validate document_id exists for this country
+        valid_docs = [d["id"] for d in country.get("identityDocuments", [])] + [
+            d["id"] for d in country.get("addressDocuments", [])
+        ]
+        if document_id and document_id not in valid_docs:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": f"Document '{document_id}' not valid for {country_code}",
+                    }
+                ),
+                400,
+            )
 
         if (
             "document_front" not in request.files
@@ -801,6 +933,8 @@ def create_application():
 
         doc = {
             "application_id": app_id,
+            "country_code": country_code,
+            "document_id": document_id,
             "document_type": doc_type,
             "files": file_ids,
             "ocr_data": None,
@@ -816,7 +950,11 @@ def create_application():
             "updated_at": datetime.utcnow(),
         }
         applications_col.insert_one(doc)
-        audit(app_id, "application_created", f"doc_type={doc_type}")
+        audit(
+            app_id,
+            "application_created",
+            f"country={country_code} doc_id={document_id} doc_type={doc_type}",
+        )
 
         # Start verification pipeline in background
         threading.Thread(target=run_verification, args=(app_id,), daemon=True).start()

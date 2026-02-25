@@ -1075,6 +1075,34 @@
             </p>
           </div>
 
+          <!-- Country Selection -->
+          <div class="section-label" style="margin-bottom: 14px">Country</div>
+          <div style="margin-bottom: 32px">
+            <select
+              id="countrySelect"
+              onchange="onCountryChange()"
+              style="
+                width: 100%;
+                padding: 12px 16px;
+                border: 2px solid var(--line);
+                border-radius: var(--radius);
+                background: var(--white);
+                font-family: &quot;DM Sans&quot;, sans-serif;
+                font-size: 0.95rem;
+                color: var(--ink);
+                cursor: pointer;
+                transition: all 0.2s;
+              "
+            >
+              <option value="">Select your country...</option>
+            </select>
+            <div
+              id="countryError"
+              class="error-banner"
+              style="margin-top: 10px; margin-bottom: 0"
+            ></div>
+          </div>
+
           <!-- Document type -->
           <div class="section-label" style="margin-bottom: 14px">
             Document Type
@@ -1572,12 +1600,136 @@
      ══════════════════════════════════════════════════════════════════════════ -->
     <script>
       /* ── State ────────────────────────────────────────────────────────────── */
+      let selectedCountry = null;
       let selectedDocType = "passport";
+      let selectedDocumentId = null;
+      let countryDocuments = null; // Loaded from /api/countries/<code>/documents
       let files = {}; // { field: File | Blob }
       let currentAppId = null;
       let pollTimer = null;
       let cameraStream = null; // MediaStream
       let selfieMode = "camera"; // 'camera' | 'upload'
+
+      /* ── Initialize countries on page load ───────────────────────────────── */
+      async function loadCountries() {
+        try {
+          const res = await fetch("/api/countries");
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+
+          const select = document.getElementById("countrySelect");
+          data.countries.forEach((country) => {
+            const option = document.createElement("option");
+            option.value = country.code;
+            option.textContent = country.name;
+            select.appendChild(option);
+          });
+        } catch (err) {
+          console.error("Failed to load countries:", err);
+          showCountryError(
+            "Failed to load countries. Please refresh the page.",
+          );
+        }
+      }
+
+      /* ── Country selection handler ────────────────────────────────────────── */
+      async function onCountryChange() {
+        const select = document.getElementById("countrySelect");
+        selectedCountry = select.value;
+        hideCountryError();
+
+        if (!selectedCountry) {
+          // Reset documents
+          countryDocuments = null;
+          renderDocumentButtons();
+          return;
+        }
+
+        // Load documents for selected country
+        try {
+          const res = await fetch(
+            `/api/countries/${selectedCountry}/documents`,
+          );
+          const data = await res.json();
+          if (!data.success) throw new Error(data.error);
+
+          countryDocuments = data;
+          renderDocumentButtons();
+        } catch (err) {
+          console.error("Failed to load documents:", err);
+          showCountryError(
+            "Failed to load documents for this country. Please try again.",
+          );
+          countryDocuments = null;
+          renderDocumentButtons();
+        }
+      }
+
+      /* ── Render document buttons based on country ──────────────────────────── */
+      function renderDocumentButtons() {
+        const grid = document.querySelector(".doc-type-grid");
+        grid.innerHTML = "";
+
+        if (!countryDocuments || !countryDocuments.identity_documents) {
+          const emptyMsg = document.createElement("div");
+          emptyMsg.style.cssText =
+            "grid-column: 1 / -1; padding: 20px; text-align: center; color: var(--ink-soft); font-size: 0.9rem;";
+          emptyMsg.textContent = "Please select a country first";
+          grid.appendChild(emptyMsg);
+          return;
+        }
+
+        // Show only identity documents for now (address verification is secondary)
+        countryDocuments.identity_documents.forEach((doc) => {
+          const btn = document.createElement("button");
+          btn.className = "doc-type-btn";
+          btn.dataset.docId = doc.id;
+          btn.dataset.type = doc.docType || doc.id;
+          btn.onclick = function () {
+            selectDocType(this);
+          };
+
+          btn.innerHTML = `
+            <span class="doc-icon">${getDocIcon(doc.id)}</span>
+            <span class="doc-name">${doc.name}</span>
+          `;
+
+          grid.appendChild(btn);
+        });
+
+        // Select first document by default
+        const firstBtn = grid.querySelector(".doc-type-btn");
+        if (firstBtn) {
+          firstBtn.click();
+        }
+      }
+
+      /* ── Get icon for document type ────────────────────────────────────────── */
+      function getDocIcon(docId) {
+        const icons = {
+          passport: "🛂",
+          drivers_license: "🪪",
+          national_id: "🪪",
+          pan_card: "📋",
+          national_id_card: "🪪",
+          nric: "🪪",
+          fin_card: "🪪",
+          default: "📄",
+        };
+        return icons[docId] || icons.default;
+      }
+
+      /* ── Show/hide country error ──────────────────────────────────────────── */
+      function showCountryError(msg) {
+        const el = document.getElementById("countryError");
+        el.textContent = msg;
+        el.classList.add("show");
+      }
+      function hideCountryError() {
+        const el = document.getElementById("countryError");
+        el.textContent = "";
+        el.classList.remove("show");
+      }
 
       /* ── Document type ────────────────────────────────────────────────────── */
       function selectDocType(btn) {
@@ -1586,6 +1738,7 @@
           .forEach((b) => b.classList.remove("selected"));
         btn.classList.add("selected");
         selectedDocType = btn.dataset.type;
+        selectedDocumentId = btn.dataset.docId || btn.dataset.type;
 
         const backZone = document.getElementById("zone-back");
         const isPassport = selectedDocType === "passport";
@@ -1748,6 +1901,10 @@
       async function submitApplication() {
         hideError();
 
+        if (!selectedCountry) {
+          showError("Please select your country.");
+          return;
+        }
         if (!files["document_front"]) {
           showError("Please upload the front of your document.");
           return;
@@ -1768,6 +1925,8 @@
         setLoading(true);
 
         const fd = new FormData();
+        fd.append("country_code", selectedCountry);
+        fd.append("document_id", selectedDocumentId);
         fd.append("document_type", selectedDocType);
         fd.append(
           "document_front",
@@ -2114,6 +2273,9 @@
       }
 
       /* ── Init ────────────────────────────────────────────────────────────── */
+      // Load countries on page load
+      loadCountries();
+
       // Passport back always dimmed by default
       document.getElementById("zone-back").style.opacity = "0.4";
       document.getElementById("zone-back").style.pointerEvents = "none";
