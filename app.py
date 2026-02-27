@@ -11,9 +11,7 @@ from datetime import datetime
 import os
 import json
 import uuid
-import cv2
 import numpy as np
-from deepface import DeepFace
 from dotenv import load_dotenv
 import google.generativeai as genai
 import threading
@@ -276,6 +274,18 @@ def check_expiry(expiry_str):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  LAZY IMPORTS (avoid loading TensorFlow at startup)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _get_cv2():
+    import cv2
+    return cv2
+
+def _get_deepface():
+    from deepface import DeepFace
+    return DeepFace
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  IMAGE FORENSICS  (fake-doc detection)
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -288,6 +298,7 @@ def detect_fake_document(image_path):
     reasons = []
     score = 0
 
+    cv2 = _get_cv2()
     img = cv2.imread(image_path)
     if img is None:
         return {"is_fake": True, "confidence": 90, "reasons": ["Image unreadable"]}
@@ -324,7 +335,7 @@ def detect_fake_document(image_path):
 
 def compare_faces(doc_path, selfie_path):
     try:
-        result = DeepFace.verify(
+        result = _get_deepface().verify(
             img1_path=doc_path,
             img2_path=selfie_path,
             model_name="Facenet",
@@ -339,6 +350,7 @@ def compare_faces(doc_path, selfie_path):
 
 def check_liveness(selfie_path):
     try:
+        cv2 = _get_cv2()
         img = cv2.imread(selfie_path)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         sharpness = cv2.Laplacian(gray, cv2.CV_64F).var()
