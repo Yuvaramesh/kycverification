@@ -1167,38 +1167,10 @@
             </div>
             <h1 class="step-title">Upload your<br />documents</h1>
             <p class="step-subtitle">
-              Select country &amp; document type, upload photos, then record a
-              short liveness video — no personal data beyond your document is
+              Select your document type, upload photos, then record a short
+              liveness video — no personal data beyond your document is
               collected.
             </p>
-          </div>
-
-          <!-- Country -->
-          <div class="section-label" style="margin-bottom: 14px">Country</div>
-          <div style="margin-bottom: 32px">
-            <select
-              id="countrySelect"
-              onchange="onCountryChange()"
-              style="
-                width: 100%;
-                padding: 12px 16px;
-                border: 2px solid var(--line);
-                border-radius: var(--radius);
-                background: var(--white);
-                font-family: &quot;DM Sans&quot;, sans-serif;
-                font-size: 0.95rem;
-                color: var(--ink);
-                cursor: pointer;
-                transition: all 0.2s;
-              "
-            >
-              <option value="">Select your country...</option>
-            </select>
-            <div
-              id="countryError"
-              class="error-banner"
-              style="margin-top: 10px; margin-bottom: 0"
-            ></div>
           </div>
 
           <!-- Doc type -->
@@ -1216,19 +1188,38 @@
             </button>
             <button
               class="doc-type-btn"
-              data-type="drivers_license"
-              onclick="selectDocType(this)"
-            >
-              <span class="doc-icon">🪪</span
-              ><span class="doc-name">Driver's License</span>
-            </button>
-            <button
-              class="doc-type-btn"
               data-type="national_id"
               onclick="selectDocType(this)"
             >
               <span class="doc-icon">🪪</span
               ><span class="doc-name">National ID</span>
+            </button>
+            <button
+              class="doc-type-btn"
+              data-type="drivers_license"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">🚗</span
+              ><span class="doc-name">Driver's License</span>
+            </button>
+            <button
+              class="doc-type-btn"
+              data-type="utility_bill"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">📄</span
+              ><span class="doc-name"
+                >Utility Bill
+                <small
+                  style="
+                    display: block;
+                    font-size: 0.68rem;
+                    color: var(--ink-soft);
+                    font-weight: 400;
+                  "
+                  >Past 3 months</small
+                ></span
+              >
             </button>
           </div>
 
@@ -1840,10 +1831,9 @@
     <!-- ══ JAVASCRIPT ══ -->
     <script>
       /* ══ State ══ */
-      let selectedCountry = null;
+      let selectedCountry = "SA"; // Hardcoded: Saudi Arabia
       let selectedDocType = "passport";
-      let selectedDocumentId = null;
-      let countryDocuments = null;
+      let selectedDocumentId = "passport";
       let files = {}; // { field: File | Blob }
       let currentAppId = null;
       let pollTimer = null;
@@ -1855,100 +1845,18 @@
       const RECORD_SECONDS = 5;
 
       /* ══ Boot ══ */
-      loadCountries();
       document.getElementById("zone-back").style.opacity = "0.4";
       document.getElementById("zone-back").style.pointerEvents = "none";
-
-      /* ══ Countries ══ */
-      async function loadCountries() {
-        try {
-          const res = await fetch("/api/countries");
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error);
-          const sel = document.getElementById("countrySelect");
-          data.countries.forEach((c) => {
-            const o = document.createElement("option");
-            o.value = c.code;
-            o.textContent = c.name;
-            sel.appendChild(o);
-          });
-        } catch (err) {
-          showCountryError("Failed to load countries. Please refresh.");
-        }
-      }
-
-      async function onCountryChange() {
-        const sel = document.getElementById("countrySelect");
-        selectedCountry = sel.value;
-        hideCountryError();
-        if (!selectedCountry) {
-          countryDocuments = null;
-          renderDocumentButtons();
-          return;
-        }
-        try {
-          const res = await fetch(
-            `/api/countries/${selectedCountry}/documents`,
-          );
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error);
-          countryDocuments = data;
-          renderDocumentButtons();
-        } catch (err) {
-          showCountryError("Failed to load documents. Please try again.");
-          countryDocuments = null;
-          renderDocumentButtons();
-        }
-      }
-
-      function renderDocumentButtons() {
-        const grid = document.querySelector(".doc-type-grid");
-        grid.innerHTML = "";
-        if (!countryDocuments?.identity_documents) {
-          const msg = document.createElement("div");
-          msg.style.cssText =
-            "grid-column:1/-1;padding:20px;text-align:center;color:var(--ink-soft);font-size:0.9rem";
-          msg.textContent = "Please select a country first";
-          grid.appendChild(msg);
-          return;
-        }
-        countryDocuments.identity_documents.forEach((doc) => {
-          const btn = document.createElement("button");
-          btn.className = "doc-type-btn";
-          btn.dataset.docId = doc.id;
-          btn.dataset.type = doc.docType || doc.id;
-          btn.onclick = function () {
-            selectDocType(this);
-          };
-          btn.innerHTML = `<span class="doc-icon">${getDocIcon(doc.id)}</span><span class="doc-name">${doc.name}</span>`;
-          grid.appendChild(btn);
-        });
-        const first = grid.querySelector(".doc-type-btn");
-        if (first) first.click();
-      }
 
       function getDocIcon(id) {
         return (
           {
             passport: "🛂",
-            drivers_license: "🪪",
+            drivers_license: "🚗",
             national_id: "🪪",
-            pan_card: "📋",
-            nric: "🪪",
-            fin_card: "🪪",
+            utility_bill: "📄",
           }[id] || "📄"
         );
-      }
-
-      function showCountryError(msg) {
-        const el = document.getElementById("countryError");
-        el.textContent = msg;
-        el.classList.add("show");
-      }
-      function hideCountryError() {
-        const el = document.getElementById("countryError");
-        el.textContent = "";
-        el.classList.remove("show");
       }
 
       /* ══ Doc type ══ */
@@ -1960,10 +1868,12 @@
         selectedDocType = btn.dataset.type;
         selectedDocumentId = btn.dataset.docId || btn.dataset.type;
         const bz = document.getElementById("zone-back");
-        const isPassport = selectedDocType === "passport";
-        bz.style.opacity = isPassport ? "0.4" : "1";
-        bz.style.pointerEvents = isPassport ? "none" : "auto";
-        if (isPassport) {
+        // Passport and utility bill are front-only; others need back
+        const frontOnly =
+          selectedDocType === "passport" || selectedDocType === "utility_bill";
+        bz.style.opacity = frontOnly ? "0.4" : "1";
+        bz.style.pointerEvents = frontOnly ? "none" : "auto";
+        if (frontOnly) {
           delete files["document_back"];
           document.getElementById("fname-document_back").textContent = "";
           bz.classList.remove("has-file");
@@ -2201,15 +2111,13 @@
       /* ══ Submit ══ */
       async function submitApplication() {
         hideError();
-        if (!selectedCountry) {
-          showError("Please select your country.");
-          return;
-        }
         if (!files["document_front"]) {
           showError("Please upload the front of your document.");
           return;
         }
-        if (selectedDocType !== "passport" && !files["document_back"]) {
+        const frontOnly =
+          selectedDocType === "passport" || selectedDocType === "utility_bill";
+        if (!frontOnly && !files["document_back"]) {
           showError("Please upload the back of your document.");
           return;
         }
@@ -2514,6 +2422,8 @@
         document
           .querySelector('[data-type="passport"]')
           .classList.add("selected");
+        selectedDocType = "passport";
+        selectedDocumentId = "passport";
         const bz = document.getElementById("zone-back");
         bz.style.opacity = "0.4";
         bz.style.pointerEvents = "none";

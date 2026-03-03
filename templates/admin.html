@@ -8,6 +8,25 @@
       href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!-- Auth guard -->
+    <script>
+      (function () {
+        fetch("/api/auth/me")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            if (!d.authenticated) {
+              window.location.replace("/login.html");
+            } else {
+              window.__kyc_user = d.user;
+            }
+          })
+          .catch(function () {
+            window.location.replace("/login.html");
+          });
+      })();
+    </script>
     <style>
       *,
       *::before,
@@ -921,6 +940,44 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px">
         <span class="bar-tag">Admin</span>
+        <!-- User info -->
+        <div
+          id="admin-user-info"
+          style="
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          "
+        >
+          <div
+            id="admin-avatar"
+            style="
+              width: 26px;
+              height: 26px;
+              border-radius: 50%;
+              background: rgba(37, 99, 235, 0.5);
+              display: grid;
+              place-items: center;
+              font-size: 0.7rem;
+              font-weight: 700;
+              color: #93c5fd;
+              overflow: hidden;
+              flex-shrink: 0;
+            "
+          ></div>
+          <span
+            id="admin-user-name"
+            style="
+              font-size: 0.78rem;
+              color: rgba(255, 255, 255, 0.8);
+              font-weight: 500;
+            "
+          ></span>
+        </div>
         <button class="btn-sm" onclick="loadAll()">
           <svg
             width="12"
@@ -936,6 +993,29 @@
             />
           </svg>
           Refresh
+        </button>
+        <button
+          class="btn-sm"
+          onclick="handleLogout()"
+          style="
+            background: rgba(220, 38, 38, 0.15);
+            border-color: rgba(220, 38, 38, 0.3);
+            color: #fca5a5;
+          "
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path
+              d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+            />
+          </svg>
+          Sign Out
         </button>
       </div>
     </header>
@@ -1616,6 +1696,39 @@
           month: "short",
           year: "numeric",
         });
+      }
+
+      // ── Auth: populate user info in top bar ────────────────────────────────
+      document.addEventListener("DOMContentLoaded", function () {
+        fetch("/api/auth/me")
+          .then((r) => r.json())
+          .then((d) => {
+            if (!d.authenticated) {
+              window.location.replace("/login.html");
+              return;
+            }
+            const u = d.user;
+            const info = document.getElementById("admin-user-info");
+            const nameEl = document.getElementById("admin-user-name");
+            const avatarEl = document.getElementById("admin-avatar");
+            if (nameEl) nameEl.textContent = u.name || u.email || "Admin";
+            if (avatarEl) {
+              if (u.avatar) {
+                avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;" />`;
+              } else {
+                avatarEl.textContent = (u.name || "A")[0].toUpperCase();
+              }
+            }
+            if (info) info.style.display = "flex";
+          })
+          .catch(() => {
+            window.location.replace("/login.html");
+          });
+      });
+
+      async function handleLogout() {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/login.html";
       }
     </script>
   </body>

@@ -10,11 +10,12 @@ Video liveness:
   - Blink / motion detection across frames adds liveness confidence
 """
 
-from flask import Flask, request, jsonify, render_template, send_file
+from flask import Flask, request, jsonify, render_template, send_file, session
 from flask_cors import CORS
 from pymongo import MongoClient
 from werkzeug.utils import secure_filename
-from datetime import datetime
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
 import os
 import json
 import uuid
@@ -28,6 +29,7 @@ from gridfs import GridFS
 import io
 import requests as req
 import tempfile
+from functools import wraps
 
 # ── Environment ────────────────────────────────────────────────────────────────
 load_dotenv()
@@ -36,6 +38,9 @@ app = Flask(__name__)
 CORS(app)
 
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "change-me-in-production")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=7)
 app.config["UPLOAD_FOLDER"] = "uploads"
 app.config["MAX_CONTENT_LENGTH"] = 64 * 1024 * 1024  # 64 MB (video)
 app.config["ALLOWED_EXTENSIONS"] = {
@@ -55,6 +60,14 @@ db = client[os.getenv("MONGODB_DB_NAME", "kyc-app")]
 fs = GridFS(db)
 applications_col = db["applications"]
 audit_col = db["audit_logs"]
+users_col = db["users"]
+
+# Ensure unique email index on users
+try:
+    users_col.create_index("email", unique=True, name="users_email_unique")
+    print("✓ Index ensured: users.email (unique)")
+except Exception:
+    pass
 
 # Drop stale indexes
 for _stale in ["email_1", "email"]:
@@ -87,6 +100,417 @@ ONFIDO_WORKFLOW_ID = os.getenv("ONFIDO_WORKFLOW_ID")
 print("✓ Onfido configured")
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+# ── Google OAuth ───────────────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv(
+    "GOOGLE_REDIRECT_URI", "http://localhost:5003/api/auth/google/callback"
+)
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  AUTH HELPERS
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("user_id"):
+            return jsonify({"error": "Unauthorized", "redirect": "/login.html"}), 401
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def get_current_user():
+    user_id = session.get("user_id")
+    if not user_id:
+        return None
+    from bson import ObjectId
+
+    return users_col.find_one({"_id": ObjectId(user_id)})
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  AUTH ROUTES
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@app.route("/api/auth/signup", methods=["POST"])
+def signup():
+    """Register a new user with email + password.
+    If the email exists but has no valid password hash (e.g. broken record),
+    overwrite it so the user can recover without manual DB intervention.
+    """
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not name or not email or not password:
+        return jsonify({"error": "Name, email and password are required"}), 400
+    if len(password) < 6:
+        return jsonify({"error": "Password must be at least 6 characters"}), 400
+
+    now = datetime.utcnow()
+    new_hash = generate_password_hash(password)
+
+    existing = users_col.find_one({"email": email})
+    if existing:
+        # If the existing record has a valid password hash, reject signup
+        existing_hash = existing.get("password_hash") or ""
+        if (
+            existing_hash
+            and existing_hash.startswith("pbkdf2:")
+            or existing_hash.startswith("scrypt:")
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": "An account with this email already exists. Please sign in instead."
+                    }
+                ),
+                409,
+            )
+
+        # Broken/empty hash — overwrite with fresh credentials
+        users_col.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "name": name,
+                    "password_hash": new_hash,
+                    "provider": "email",
+                    "last_login": now,
+                    "updated_at": now,
+                }
+            },
+        )
+        uid = str(existing["_id"])
+        role = existing.get("role", "user")
+    else:
+        user_doc = {
+            "user_id": str(uuid.uuid4()),
+            "name": name,
+            "email": email,
+            "password_hash": new_hash,
+            "provider": "email",
+            "avatar": None,
+            "role": "user",
+            "created_at": now,
+            "last_login": now,
+        }
+        result = users_col.insert_one(user_doc)
+        uid = str(result.inserted_id)
+        role = "user"
+
+    session.permanent = True
+    session["user_id"] = uid
+    session["email"] = email
+    session["name"] = name
+    session["role"] = role
+
+    return (
+        jsonify(
+            {"success": True, "user": {"name": name, "email": email, "role": role}}
+        ),
+        201,
+    )
+
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    """Login with email + password."""
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    user = users_col.find_one({"email": email})
+    if not user:
+        return (
+            jsonify(
+                {"error": "No account found with this email. Please sign up first."}
+            ),
+            401,
+        )
+
+    stored_hash = user.get("password_hash") or ""
+    if not stored_hash:
+        return (
+            jsonify(
+                {
+                    "error": "This account was created via Google. Please use 'Continue with Google'."
+                }
+            ),
+            401,
+        )
+
+    if not check_password_hash(stored_hash, password):
+        return jsonify({"error": "Incorrect password. Please try again."}), 401
+
+    users_col.update_one(
+        {"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}}
+    )
+
+    session.permanent = True
+    session["user_id"] = str(user["_id"])
+    session["email"] = user["email"]
+    session["name"] = user.get("name", "")
+    session["role"] = user.get("role", "user")
+
+    return jsonify(
+        {
+            "success": True,
+            "user": {
+                "name": user.get("name"),
+                "email": user["email"],
+                "avatar": user.get("avatar"),
+                "role": user.get("role", "user"),
+            },
+        }
+    )
+
+
+@app.route("/api/auth/reset-user", methods=["POST"])
+def reset_user():
+    """Dev utility: delete a user by email so they can re-register cleanly.
+    Remove this route before going to production.
+    """
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "email required"}), 400
+    result = users_col.delete_one({"email": email})
+    return jsonify({"deleted": result.deleted_count, "email": email})
+
+
+@app.route("/api/auth/logout", methods=["POST"])
+def logout():
+    """Clear session."""
+    session.clear()
+    return jsonify({"success": True})
+
+
+@app.route("/api/auth/me", methods=["GET"])
+def me():
+    """Return current authenticated user."""
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"authenticated": False}), 401
+    return jsonify(
+        {
+            "authenticated": True,
+            "user": {
+                "name": session.get("name"),
+                "email": session.get("email"),
+                "role": session.get("role", "user"),
+            },
+        }
+    )
+
+
+# ── Google OAuth Flow ──────────────────────────────────────────────────────────
+
+
+@app.route("/api/auth/google", methods=["GET"])
+def google_oauth_redirect():
+    """Redirect user to Google OAuth consent screen."""
+    if not GOOGLE_CLIENT_ID:
+        return (
+            jsonify(
+                {"error": "Google OAuth not configured. Set GOOGLE_CLIENT_ID in .env"}
+            ),
+            500,
+        )
+    import urllib.parse
+
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "access_type": "offline",
+        "prompt": "select_account",
+    }
+    url = "https://accounts.google.com/o/oauth2/v2/auth?" + urllib.parse.urlencode(
+        params
+    )
+    from flask import redirect
+
+    return redirect(url)
+
+
+@app.route("/api/auth/google/callback", methods=["GET"])
+def google_oauth_callback():
+    """Handle Google OAuth callback, exchange code for user info."""
+    from flask import redirect as flask_redirect
+
+    code = request.args.get("code")
+    error = request.args.get("error")
+
+    if error or not code:
+        return flask_redirect("/login.html?error=google_denied")
+
+    if not GOOGLE_CLIENT_ID or not GOOGLE_CLIENT_SECRET:
+        return flask_redirect("/login.html?error=oauth_not_configured")
+
+    # Exchange code for tokens
+    token_resp = req.post(
+        "https://oauth2.googleapis.com/token",
+        data={
+            "code": code,
+            "client_id": GOOGLE_CLIENT_ID,
+            "client_secret": GOOGLE_CLIENT_SECRET,
+            "redirect_uri": GOOGLE_REDIRECT_URI,
+            "grant_type": "authorization_code",
+        },
+        timeout=10,
+    )
+
+    if not token_resp.ok:
+        return flask_redirect("/login.html?error=token_exchange_failed")
+
+    tokens = token_resp.json()
+    access_token = tokens.get("access_token")
+
+    # Get user info from Google
+    userinfo_resp = req.get(
+        "https://www.googleapis.com/oauth2/v2/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10,
+    )
+
+    if not userinfo_resp.ok:
+        return flask_redirect("/login.html?error=userinfo_failed")
+
+    guser = userinfo_resp.json()
+    email = guser.get("email", "").lower()
+    name = guser.get("name", "")
+    avatar = guser.get("picture")
+    google_id = guser.get("id")
+
+    if not email:
+        return flask_redirect("/login.html?error=no_email")
+
+    # Upsert user in DB
+    now = datetime.utcnow()
+    existing = users_col.find_one({"email": email})
+    if existing:
+        users_col.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "name": name,
+                    "avatar": avatar,
+                    "last_login": now,
+                    "google_id": google_id,
+                }
+            },
+        )
+        uid = str(existing["_id"])
+        role = existing.get("role", "user")
+    else:
+        doc = {
+            "user_id": str(uuid.uuid4()),
+            "name": name,
+            "email": email,
+            "password_hash": None,
+            "provider": "google",
+            "google_id": google_id,
+            "avatar": avatar,
+            "role": "user",
+            "created_at": now,
+            "last_login": now,
+        }
+        res = users_col.insert_one(doc)
+        uid = str(res.inserted_id)
+        role = "user"
+
+    session.permanent = True
+    session["user_id"] = uid
+    session["email"] = email
+    session["name"] = name
+    session["role"] = role
+
+    return flask_redirect("/index.html")
+
+
+@app.route("/api/auth/google/token", methods=["POST"])
+def google_token_signin():
+    """Accept Google ID token from frontend (for one-tap / GSI)."""
+    data = request.get_json() or {}
+    id_token_str = data.get("id_token") or data.get("credential")
+    if not id_token_str:
+        return jsonify({"error": "id_token required"}), 400
+
+    # Verify token with Google
+    verify_resp = req.get(
+        f"https://oauth2.googleapis.com/tokeninfo?id_token={id_token_str}", timeout=10
+    )
+    if not verify_resp.ok:
+        return jsonify({"error": "Invalid Google token"}), 401
+
+    ginfo = verify_resp.json()
+    if GOOGLE_CLIENT_ID and ginfo.get("aud") != GOOGLE_CLIENT_ID:
+        return jsonify({"error": "Token audience mismatch"}), 401
+
+    email = (ginfo.get("email") or "").lower()
+    name = ginfo.get("name", "")
+    avatar = ginfo.get("picture")
+    google_id = ginfo.get("sub")
+
+    if not email:
+        return jsonify({"error": "No email in token"}), 400
+
+    now = datetime.utcnow()
+    existing = users_col.find_one({"email": email})
+    if existing:
+        users_col.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "name": name,
+                    "avatar": avatar,
+                    "last_login": now,
+                    "google_id": google_id,
+                }
+            },
+        )
+        uid = str(existing["_id"])
+        role = existing.get("role", "user")
+    else:
+        doc = {
+            "user_id": str(uuid.uuid4()),
+            "name": name,
+            "email": email,
+            "password_hash": None,
+            "provider": "google",
+            "google_id": google_id,
+            "avatar": avatar,
+            "role": "user",
+            "created_at": now,
+            "last_login": now,
+        }
+        res = users_col.insert_one(doc)
+        uid = str(res.inserted_id)
+        role = "user"
+
+    session.permanent = True
+    session["user_id"] = uid
+    session["email"] = email
+    session["name"] = name
+    session["role"] = role
+
+    return jsonify(
+        {
+            "success": True,
+            "user": {"name": name, "email": email, "avatar": avatar, "role": role},
+        }
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1045,39 +1469,16 @@ def create_application():
       - face matched against document across all frames (best score used)
     """
     try:
-        country_code = request.form.get("country_code", "").upper()
+        country_code = request.form.get("country_code", "SA").upper()
         document_id = request.form.get("document_id", "")
         doc_type = request.form.get("document_type", "passport")
 
-        if not country_code:
-            return jsonify({"success": False, "error": "country_code is required"}), 400
-
-        countries = COUNTRY_DOCUMENTS.get("countries", [])
-        country = next((c for c in countries if c["code"] == country_code), None)
-        if not country:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": f"Country '{country_code}' not supported",
-                    }
-                ),
-                400,
-            )
-
-        valid_docs = [d["id"] for d in country.get("identityDocuments", [])] + [
-            d["id"] for d in country.get("addressDocuments", [])
-        ]
-        if document_id and document_id not in valid_docs:
-            return (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": f"Document '{document_id}' not valid for {country_code}",
-                    }
-                ),
-                400,
-            )
+        # Saudi Arabia is the only supported country — skip country/doc validation
+        SAUDI_DOCS = ["passport", "national_id", "drivers_license", "utility_bill"]
+        if not doc_type:
+            doc_type = "passport"
+        if not document_id:
+            document_id = doc_type
 
         if (
             "document_front" not in request.files
@@ -1378,6 +1779,27 @@ def poll_onfido_result(app_id):
         return jsonify({"success": False, "error": str(e)}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  HTML PAGE ROUTES
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@app.route("/login.html")
+@app.route("/login")
+def serve_login():
+    return render_template("login.html")
+
+
+@app.route("/index.html")
+def serve_index():
+    return render_template("index.html")
+
+
+@app.route("/admin.html")
+def serve_admin():
+    return render_template("admin.html")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
