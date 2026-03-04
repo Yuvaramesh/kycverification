@@ -1903,7 +1903,8 @@ def poll_onfido_result_for_user(app_id):
         reasons = wf_data.get("reasons", []) or []
 
         status_map = {
-            "approved": "approved",
+            # Onfido "approved" → "reviewing": admin must still make the final decision
+            "approved": "reviewing",
             "declined": "rejected",
             "review": "reviewing",
             "abandoned": "reviewing",
@@ -1930,9 +1931,8 @@ def poll_onfido_result_for_user(app_id):
                 )
                 update["reviewed_by"] = "onfido_auto"
                 update["reviewed_at"] = datetime.utcnow()
-            elif new_status == "approved":
-                update["reviewed_by"] = "onfido_auto"
-                update["reviewed_at"] = datetime.utcnow()
+            elif new_status == "reviewing" and onfido_status == "approved":
+                pass  # Onfido approved but admin makes the final call — do not auto-set reviewed_by
 
         applications_col.update_one({"application_id": app_id}, {"$set": update})
         audit(
@@ -1983,7 +1983,8 @@ def onfido_webhook():
             return jsonify({"ok": True}), 200
         app_id = rec["application_id"]
         status_map = {
-            "approved": "approved",
+            # Onfido "approved" → "reviewing": admin must still make the final decision
+            "approved": "reviewing",
             "declined": "rejected",
             "review": "reviewing",
             "abandoned": "reviewing",
