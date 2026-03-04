@@ -101,6 +101,10 @@ print("✓ Onfido configured")
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
+# ── Admin ──────────────────────────────────────────────────────────────────────
+ADMIN_EMAIL = "yuvi@10qbit.com"  # Only this email has admin access
+print(f"✓ Admin email: {ADMIN_EMAIL}")
+
 # ── Google OAuth ───────────────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -118,6 +122,18 @@ def login_required(f):
     def decorated(*args, **kwargs):
         if not session.get("user_id"):
             return jsonify({"error": "Unauthorized", "redirect": "/login.html"}), 401
+        return f(*args, **kwargs)
+
+    return decorated
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("user_id"):
+            return jsonify({"error": "Unauthorized", "redirect": "/login.html"}), 401
+        if session.get("role") != "admin":
+            return jsonify({"error": "Forbidden – admin access only"}), 403
         return f(*args, **kwargs)
 
     return decorated
@@ -188,8 +204,12 @@ def signup():
             },
         )
         uid = str(existing["_id"])
-        role = existing.get("role", "user")
+        role = "admin" if email == ADMIN_EMAIL else existing.get("role", "user")
+        # Always keep admin role in sync in DB
+        if role == "admin" and existing.get("role") != "admin":
+            users_col.update_one({"_id": existing["_id"]}, {"$set": {"role": "admin"}})
     else:
+        assigned_role = "admin" if email == ADMIN_EMAIL else "user"
         user_doc = {
             "user_id": str(uuid.uuid4()),
             "name": name,
@@ -197,13 +217,13 @@ def signup():
             "password_hash": new_hash,
             "provider": "email",
             "avatar": None,
-            "role": "user",
+            "role": assigned_role,
             "created_at": now,
             "last_login": now,
         }
         result = users_col.insert_one(user_doc)
         uid = str(result.inserted_id)
-        role = "user"
+        role = assigned_role
 
     session.permanent = True
     session["user_id"] = uid
@@ -252,15 +272,20 @@ def login():
     if not check_password_hash(stored_hash, password):
         return jsonify({"error": "Incorrect password. Please try again."}), 401
 
-    users_col.update_one(
-        {"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}}
+    # Auto-assign admin role if this is the admin email
+    resolved_role = (
+        "admin" if user["email"] == ADMIN_EMAIL else user.get("role", "user")
     )
+    update_fields = {"last_login": datetime.utcnow()}
+    if resolved_role == "admin" and user.get("role") != "admin":
+        update_fields["role"] = "admin"
+    users_col.update_one({"_id": user["_id"]}, {"$set": update_fields})
 
     session.permanent = True
     session["user_id"] = str(user["_id"])
     session["email"] = user["email"]
     session["name"] = user.get("name", "")
-    session["role"] = user.get("role", "user")
+    session["role"] = resolved_role
 
     return jsonify(
         {
@@ -269,13 +294,12 @@ def login():
                 "name": user.get("name"),
                 "email": user["email"],
                 "avatar": user.get("avatar"),
-                "role": user.get("role", "user"),
+                "role": resolved_role,
             },
         }
     )
 
 
-@app.route("/api/auth/reset-user", methods=["POST"])
 def reset_user():
     """Dev utility: delete a user by email so they can re-register cleanly.
     Remove this route before going to production.
@@ -399,21 +423,23 @@ def google_oauth_callback():
     # Upsert user in DB
     now = datetime.utcnow()
     existing = users_col.find_one({"email": email})
+    # Determine role — admin email always gets admin role
+    assigned_role = "admin" if email == ADMIN_EMAIL else None
     if existing:
-        users_col.update_one(
-            {"email": email},
-            {
-                "$set": {
-                    "name": name,
-                    "avatar": avatar,
-                    "last_login": now,
-                    "google_id": google_id,
-                }
-            },
-        )
+        resolved_role = assigned_role or existing.get("role", "user")
+        set_fields = {
+            "name": name,
+            "avatar": avatar,
+            "last_login": now,
+            "google_id": google_id,
+        }
+        if resolved_role == "admin" and existing.get("role") != "admin":
+            set_fields["role"] = "admin"
+        users_col.update_one({"email": email}, {"$set": set_fields})
         uid = str(existing["_id"])
-        role = existing.get("role", "user")
+        role = resolved_role
     else:
+        resolved_role = assigned_role or "user"
         doc = {
             "user_id": str(uuid.uuid4()),
             "name": name,
@@ -422,13 +448,13 @@ def google_oauth_callback():
             "provider": "google",
             "google_id": google_id,
             "avatar": avatar,
-            "role": "user",
+            "role": resolved_role,
             "created_at": now,
             "last_login": now,
         }
         res = users_col.insert_one(doc)
         uid = str(res.inserted_id)
-        role = "user"
+        role = resolved_role
 
     session.permanent = True
     session["user_id"] = uid
@@ -436,7 +462,8 @@ def google_oauth_callback():
     session["name"] = name
     session["role"] = role
 
-    return flask_redirect("/index.html")
+    # Admin goes to dashboard, users go to KYC upload page
+    return flask_redirect("/admin.html" if role == "admin" else "/index.html")
 
 
 @app.route("/api/auth/google/token", methods=["POST"])
@@ -467,22 +494,23 @@ def google_token_signin():
         return jsonify({"error": "No email in token"}), 400
 
     now = datetime.utcnow()
+    assigned_role = "admin" if email == ADMIN_EMAIL else None
     existing = users_col.find_one({"email": email})
     if existing:
-        users_col.update_one(
-            {"email": email},
-            {
-                "$set": {
-                    "name": name,
-                    "avatar": avatar,
-                    "last_login": now,
-                    "google_id": google_id,
-                }
-            },
-        )
+        resolved_role = assigned_role or existing.get("role", "user")
+        set_fields = {
+            "name": name,
+            "avatar": avatar,
+            "last_login": now,
+            "google_id": google_id,
+        }
+        if resolved_role == "admin" and existing.get("role") != "admin":
+            set_fields["role"] = "admin"
+        users_col.update_one({"email": email}, {"$set": set_fields})
         uid = str(existing["_id"])
-        role = existing.get("role", "user")
+        role = resolved_role
     else:
+        resolved_role = assigned_role or "user"
         doc = {
             "user_id": str(uuid.uuid4()),
             "name": name,
@@ -491,13 +519,13 @@ def google_token_signin():
             "provider": "google",
             "google_id": google_id,
             "avatar": avatar,
-            "role": "user",
+            "role": resolved_role,
             "created_at": now,
             "last_login": now,
         }
         res = users_col.insert_one(doc)
         uid = str(res.inserted_id)
-        role = "user"
+        role = resolved_role
 
     session.permanent = True
     session["user_id"] = uid
@@ -1411,6 +1439,7 @@ def index():
 
 
 @app.route("/admin")
+@admin_required
 def admin():
     return render_template("admin.html")
 
@@ -1575,6 +1604,7 @@ def get_application(app_id):
 
 
 @app.route("/api/applications", methods=["GET"])
+@admin_required
 def list_applications():
     status_filter = request.args.get("status")
     limit = int(request.args.get("limit", 50))
@@ -1594,6 +1624,7 @@ def list_applications():
 
 
 @app.route("/api/applications/<app_id>/review", methods=["POST"])
+@admin_required
 def review_application(app_id):
     rec = applications_col.find_one({"application_id": app_id})
     if not rec:
@@ -1620,6 +1651,7 @@ def review_application(app_id):
 
 
 @app.route("/api/stats", methods=["GET"])
+@admin_required
 def get_stats():
     statuses = ["processing", "approved", "rejected", "reviewing", "pending_onfido"]
     counts = {s: applications_col.count_documents({"status": s}) for s in statuses}
@@ -1798,6 +1830,7 @@ def serve_index():
 
 
 @app.route("/admin.html")
+@admin_required
 def serve_admin():
     return render_template("admin.html")
 

@@ -9,6 +9,7 @@
       rel="stylesheet"
     />
     <!-- Auth guard -->
+    <!-- Auth guard: admin only -->
     <script>
       (function () {
         fetch("/api/auth/me")
@@ -17,13 +18,15 @@
           })
           .then(function (d) {
             if (!d.authenticated) {
-              window.location.replace("/login.html");
+              window.location.replace("/login.html?admin=1");
+            } else if (d.user.role !== "admin") {
+              window.location.replace("/login.html?error=not_admin");
             } else {
               window.__kyc_user = d.user;
             }
           })
           .catch(function () {
-            window.location.replace("/login.html");
+            window.location.replace("/login.html?admin=1");
           });
       })();
     </script>

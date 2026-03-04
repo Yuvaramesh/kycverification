@@ -695,32 +695,42 @@
     </div>
 
     <script>
-      // ── Check for URL error params (from OAuth callback) ──────────────────
+      // ── Redirect if already logged in — admin → dashboard, user → upload ──
+      fetch("/api/auth/me")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.authenticated) {
+            redirectByRole(d.user.role);
+          }
+        })
+        .catch(() => {});
+
+      // ── Handle error messages from redirects ───────────────────────────────
       const urlParams = new URLSearchParams(window.location.search);
       const urlError = urlParams.get("error");
       if (urlError) {
         const msgs = {
           google_denied: "Google sign-in was cancelled.",
-          oauth_not_configured:
-            "Google OAuth is not yet configured on the server.",
+          oauth_not_configured: "Google OAuth is not configured on the server.",
           token_exchange_failed:
             "Failed to exchange Google token. Please try again.",
           userinfo_failed: "Could not retrieve your Google account info.",
           no_email: "Your Google account did not return an email.",
+          not_admin: "Access denied. Administrator privileges required.",
         };
-        showError(
-          "login",
-          msgs[urlError] || "Authentication failed. Please try again.",
-        );
+        // Wait for DOM, then show error
+        document.addEventListener("DOMContentLoaded", () => {
+          showError(
+            "login",
+            msgs[urlError] || "Authentication failed. Please try again.",
+          );
+        });
       }
 
-      // ── Redirect if already logged in ─────────────────────────────────────
-      fetch("/api/auth/me")
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.authenticated) window.location.href = "/index.html";
-        })
-        .catch(() => {});
+      // ── Role-based redirect ────────────────────────────────────────────────
+      function redirectByRole(role) {
+        window.location.href = role === "admin" ? "/admin.html" : "/index.html";
+      }
 
       // ── Tab switching ──────────────────────────────────────────────────────
       function switchTab(tab) {
@@ -759,7 +769,8 @@
           if (!res.ok) {
             showError("login", data.error || "Login failed.");
           } else {
-            window.location.href = "/index.html";
+            // Backend returns role — admin goes to dashboard, user to upload
+            redirectByRole(data.user.role);
           }
         } catch {
           showError("login", "Network error. Please try again.");
@@ -792,7 +803,6 @@
           const data = await res.json();
           if (!res.ok) {
             if (res.status === 409) {
-              // Account exists — pre-fill login and switch tab
               document.getElementById("login-email").value = email;
               document.getElementById("login-password").value = password;
               switchTab("login");
@@ -804,7 +814,7 @@
               showError("signup", data.error || "Sign up failed.");
             }
           } else {
-            window.location.href = "/index.html";
+            redirectByRole(data.user.role);
           }
         } catch {
           showError("signup", "Network error. Please try again.");
