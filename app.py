@@ -97,13 +97,18 @@ else:
 ONFIDO_API_TOKEN = os.getenv("ONFIDO_API_TOKEN")
 ONFIDO_API_URL = os.getenv("ONFIDO_API_URL")
 ONFIDO_WORKFLOW_ID = os.getenv("ONFIDO_WORKFLOW_ID")
+# Base URL for Onfido to redirect back to after hosted verification
+APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:5003")
 print("✓ Onfido configured")
 
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 # ── Admin ──────────────────────────────────────────────────────────────────────
-ADMIN_EMAIL = "yuvi@10qbit.com"  # Only this email has admin access
-print(f"✓ Admin email: {ADMIN_EMAIL}")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "").strip().lower()
+if ADMIN_EMAIL:
+    print(f"✓ Admin email configured: {ADMIN_EMAIL}")
+else:
+    print("✗ ADMIN_EMAIL not set — admin login will be disabled")
 
 # ── Google OAuth ───────────────────────────────────────────────────────────────
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -130,9 +135,20 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        from flask import redirect as flask_redirect, request as flask_request
+
+        # Detect if this is a browser page request (expects HTML) vs API call (expects JSON)
+        is_page = (
+            flask_request.accept_mimetypes.accept_html
+            and not flask_request.path.startswith("/api/")
+        )
         if not session.get("user_id"):
+            if is_page:
+                return flask_redirect("/login.html")
             return jsonify({"error": "Unauthorized", "redirect": "/login.html"}), 401
         if session.get("role") != "admin":
+            if is_page:
+                return flask_redirect("/login.html?error=not_admin")
             return jsonify({"error": "Forbidden – admin access only"}), 403
         return f(*args, **kwargs)
 
@@ -204,12 +220,8 @@ def signup():
             },
         )
         uid = str(existing["_id"])
-        role = "admin" if email == ADMIN_EMAIL else existing.get("role", "user")
-        # Always keep admin role in sync in DB
-        if role == "admin" and existing.get("role") != "admin":
-            users_col.update_one({"_id": existing["_id"]}, {"$set": {"role": "admin"}})
+        role = existing.get("role", "user")
     else:
-        assigned_role = "admin" if email == ADMIN_EMAIL else "user"
         user_doc = {
             "user_id": str(uuid.uuid4()),
             "name": name,
@@ -217,13 +229,13 @@ def signup():
             "password_hash": new_hash,
             "provider": "email",
             "avatar": None,
-            "role": assigned_role,
+            "role": "user",
             "created_at": now,
             "last_login": now,
         }
         result = users_col.insert_one(user_doc)
         uid = str(result.inserted_id)
-        role = assigned_role
+        role = "user"
 
     session.permanent = True
     session["user_id"] = uid
@@ -272,20 +284,15 @@ def login():
     if not check_password_hash(stored_hash, password):
         return jsonify({"error": "Incorrect password. Please try again."}), 401
 
-    # Auto-assign admin role if this is the admin email
-    resolved_role = (
-        "admin" if user["email"] == ADMIN_EMAIL else user.get("role", "user")
+    users_col.update_one(
+        {"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}}
     )
-    update_fields = {"last_login": datetime.utcnow()}
-    if resolved_role == "admin" and user.get("role") != "admin":
-        update_fields["role"] = "admin"
-    users_col.update_one({"_id": user["_id"]}, {"$set": update_fields})
 
     session.permanent = True
     session["user_id"] = str(user["_id"])
     session["email"] = user["email"]
     session["name"] = user.get("name", "")
-    session["role"] = resolved_role
+    session["role"] = user.get("role", "user")
 
     return jsonify(
         {
@@ -294,8 +301,71 @@ def login():
                 "name": user.get("name"),
                 "email": user["email"],
                 "avatar": user.get("avatar"),
-                "role": resolved_role,
+                "role": user.get("role", "user"),
             },
+        }
+    )
+
+
+@app.route("/api/auth/admin-login", methods=["POST"])
+def admin_login():
+    """Login exclusively for the designated admin email."""
+    if not ADMIN_EMAIL:
+        return jsonify({"error": "Admin access is not configured on this server"}), 503
+
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+
+    # Reject immediately if not the designated admin email
+    if email != ADMIN_EMAIL:
+        return (
+            jsonify({"error": "Access denied. This login is for administrators only."}),
+            403,
+        )
+
+    user = users_col.find_one({"email": email})
+    if not user:
+        return (
+            jsonify({"error": "Admin account not found. Please contact support."}),
+            401,
+        )
+
+    stored_hash = user.get("password_hash") or ""
+    if not stored_hash:
+        return (
+            jsonify(
+                {
+                    "error": "This admin account uses Google Sign-In. Use 'Continue with Google'."
+                }
+            ),
+            401,
+        )
+
+    if not check_password_hash(stored_hash, password):
+        return jsonify({"error": "Incorrect password."}), 401
+
+    # Ensure the DB record has role=admin (auto-promote on first admin login)
+    if user.get("role") != "admin":
+        users_col.update_one({"_id": user["_id"]}, {"$set": {"role": "admin"}})
+
+    users_col.update_one(
+        {"_id": user["_id"]}, {"$set": {"last_login": datetime.utcnow()}}
+    )
+
+    session.permanent = True
+    session["user_id"] = str(user["_id"])
+    session["email"] = email
+    session["name"] = user.get("name", "")
+    session["role"] = "admin"
+
+    return jsonify(
+        {
+            "success": True,
+            "user": {"name": user.get("name"), "email": email, "role": "admin"},
         }
     )
 
@@ -423,23 +493,21 @@ def google_oauth_callback():
     # Upsert user in DB
     now = datetime.utcnow()
     existing = users_col.find_one({"email": email})
-    # Determine role — admin email always gets admin role
-    assigned_role = "admin" if email == ADMIN_EMAIL else None
     if existing:
-        resolved_role = assigned_role or existing.get("role", "user")
-        set_fields = {
-            "name": name,
-            "avatar": avatar,
-            "last_login": now,
-            "google_id": google_id,
-        }
-        if resolved_role == "admin" and existing.get("role") != "admin":
-            set_fields["role"] = "admin"
-        users_col.update_one({"email": email}, {"$set": set_fields})
+        users_col.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "name": name,
+                    "avatar": avatar,
+                    "last_login": now,
+                    "google_id": google_id,
+                }
+            },
+        )
         uid = str(existing["_id"])
-        role = resolved_role
+        role = existing.get("role", "user")
     else:
-        resolved_role = assigned_role or "user"
         doc = {
             "user_id": str(uuid.uuid4()),
             "name": name,
@@ -448,13 +516,13 @@ def google_oauth_callback():
             "provider": "google",
             "google_id": google_id,
             "avatar": avatar,
-            "role": resolved_role,
+            "role": "user",
             "created_at": now,
             "last_login": now,
         }
         res = users_col.insert_one(doc)
         uid = str(res.inserted_id)
-        role = resolved_role
+        role = "user"
 
     session.permanent = True
     session["user_id"] = uid
@@ -462,8 +530,7 @@ def google_oauth_callback():
     session["name"] = name
     session["role"] = role
 
-    # Admin goes to dashboard, users go to KYC upload page
-    return flask_redirect("/admin.html" if role == "admin" else "/index.html")
+    return flask_redirect("/index.html")
 
 
 @app.route("/api/auth/google/token", methods=["POST"])
@@ -494,23 +561,22 @@ def google_token_signin():
         return jsonify({"error": "No email in token"}), 400
 
     now = datetime.utcnow()
-    assigned_role = "admin" if email == ADMIN_EMAIL else None
     existing = users_col.find_one({"email": email})
     if existing:
-        resolved_role = assigned_role or existing.get("role", "user")
-        set_fields = {
-            "name": name,
-            "avatar": avatar,
-            "last_login": now,
-            "google_id": google_id,
-        }
-        if resolved_role == "admin" and existing.get("role") != "admin":
-            set_fields["role"] = "admin"
-        users_col.update_one({"email": email}, {"$set": set_fields})
+        users_col.update_one(
+            {"email": email},
+            {
+                "$set": {
+                    "name": name,
+                    "avatar": avatar,
+                    "last_login": now,
+                    "google_id": google_id,
+                }
+            },
+        )
         uid = str(existing["_id"])
-        role = resolved_role
+        role = existing.get("role", "user")
     else:
-        resolved_role = assigned_role or "user"
         doc = {
             "user_id": str(uuid.uuid4()),
             "name": name,
@@ -519,13 +585,13 @@ def google_token_signin():
             "provider": "google",
             "google_id": google_id,
             "avatar": avatar,
-            "role": resolved_role,
+            "role": "user",
             "created_at": now,
             "last_login": now,
         }
         res = users_col.insert_one(doc)
         uid = str(res.inserted_id)
-        role = resolved_role
+        role = "user"
 
     session.permanent = True
     session["user_id"] = uid
@@ -1168,17 +1234,32 @@ def send_to_onfido(app_id, ocr_name):
         r = req.post(
             f"{ONFIDO_API_URL}/workflow_runs",
             headers=headers_json,
-            json={"applicant_id": applicant_id, "workflow_id": ONFIDO_WORKFLOW_ID},
+            json={
+                "applicant_id": applicant_id,
+                "workflow_id": ONFIDO_WORKFLOW_ID,
+                "custom_data": {"kyc_app_id": app_id},
+                # Redirect user back to our app after Onfido completes
+                "link": {
+                    "completed_redirect_url": f"{APP_BASE_URL}/index.html",
+                    "expired_redirect_url": f"{APP_BASE_URL}/index.html",
+                    "language": "en",
+                },
+            },
             timeout=30,
         )
         r.raise_for_status()
         wf = r.json()
+        print(
+            f"[{app_id}] Onfido workflow run: {wf.get('id')} link={wf.get('link', '(none)')}"
+        )
 
         return {
             "success": True,
             "applicant_id": applicant_id,
             "workflow_run_id": wf["id"],
             "onfido_status": wf.get("status", "processing"),
+            # link is an object like {url, completed_redirect_url, ...} — extract the url string
+            "onfido_link": (wf.get("link") or {}).get("url") or wf.get("link"),
         }
 
     except req.exceptions.HTTPError as e:
@@ -1350,6 +1431,7 @@ def run_verification(app_id):
             "submitted_at": datetime.utcnow().isoformat(),
             "applicant_id": onfido_resp.get("applicant_id"),
             "workflow_run_id": onfido_resp.get("workflow_run_id"),
+            "link": onfido_resp.get("onfido_link"),
             "status": onfido_resp.get("onfido_status", "processing"),
             "success": onfido_resp.get("success", False),
             "escalation_reasons": escalation_reasons,
@@ -1680,6 +1762,210 @@ def serve_file(file_id):
         return jsonify({"error": "File not found"}), 404
 
 
+@app.route("/api/applications/<app_id>/onfido-link", methods=["GET"])
+def get_onfido_link(app_id):
+    """
+    Return the Onfido hosted Studio link for this application.
+    If the link wasn't stored at creation time, fetch the workflow run
+    from Onfido API and extract/return the link field.
+    Frontend uses this to redirect the user to Onfido's hosted verification page.
+    """
+    try:
+        rec = applications_col.find_one({"application_id": app_id})
+        if not rec:
+            return jsonify({"error": "Not found"}), 404
+
+        if rec.get("status") != "pending_onfido":
+            return (
+                jsonify(
+                    {
+                        "error": "Application is not pending Onfido verification",
+                        "status": rec.get("status"),
+                    }
+                ),
+                400,
+            )
+
+        onfido = rec.get("onfido_data", {}) or {}
+        workflow_run_id = onfido.get("workflow_run_id")
+        applicant_id = onfido.get("applicant_id")
+
+        if not workflow_run_id:
+            return (
+                jsonify({"error": "No Onfido workflow run found for this application"}),
+                400,
+            )
+
+        # Return cached link if we have it
+        cached_link = onfido.get("link")
+        if cached_link:
+            # link may be stored as full object {url, ...} or plain string
+            link_url = (
+                cached_link.get("url") if isinstance(cached_link, dict) else cached_link
+            )
+            if link_url:
+                return jsonify(
+                    {
+                        "success": True,
+                        "link": link_url,
+                        "workflow_run_id": workflow_run_id,
+                        "applicant_id": applicant_id,
+                        "escalation_reasons": onfido.get("escalation_reasons", []),
+                    }
+                )
+
+        # Fetch fresh from Onfido API
+        headers = {
+            "Authorization": f"Token token={ONFIDO_API_TOKEN}",
+            "Content-Type": "application/json",
+        }
+        resp = req.get(
+            f"{ONFIDO_API_URL}/workflow_runs/{workflow_run_id}",
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        wf_data = resp.json()
+        link = wf_data.get("link")
+
+        # link object from Onfido: {url, completed_redirect_url, ...} — extract the url string
+        link_url = link.get("url") if isinstance(link, dict) else link
+        if link_url:
+            # Cache the raw link object and store extracted url
+            applications_col.update_one(
+                {"application_id": app_id}, {"$set": {"onfido_data.link": link}}
+            )
+        else:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Onfido did not provide a usable link for this workflow run.",
+                        "workflow_status": wf_data.get("status"),
+                        "workflow_run_id": workflow_run_id,
+                    }
+                ),
+                400,
+            )
+
+        audit(app_id, "onfido_link_fetched", f"workflow_run={workflow_run_id}")
+        return jsonify(
+            {
+                "success": True,
+                "link": link_url,
+                "workflow_run_id": workflow_run_id,
+                "applicant_id": applicant_id,
+                "escalation_reasons": onfido.get("escalation_reasons", []),
+            }
+        )
+
+    except req.exceptions.HTTPError as e:
+        body = e.response.text if e.response else str(e)
+        return jsonify({"error": str(e), "details": body}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/applications/<app_id>/onfido-result", methods=["GET"])
+def poll_onfido_result_for_user(app_id):
+    """
+    Poll Onfido for the latest workflow run status and update DB.
+    Used by the user-facing page after they complete Onfido verification.
+    Returns the current app status so the frontend can decide when to stop polling.
+    """
+    try:
+        rec = applications_col.find_one({"application_id": app_id})
+        if not rec:
+            return jsonify({"error": "Not found"}), 404
+
+        onfido = rec.get("onfido_data", {}) or {}
+        workflow_run_id = onfido.get("workflow_run_id")
+        if not workflow_run_id:
+            return (
+                jsonify({"success": False, "error": "No Onfido workflow run found"}),
+                400,
+            )
+
+        headers = {
+            "Authorization": f"Token token={ONFIDO_API_TOKEN}",
+            "Content-Type": "application/json",
+        }
+        resp = req.get(
+            f"{ONFIDO_API_URL}/workflow_runs/{workflow_run_id}",
+            headers=headers,
+            timeout=15,
+        )
+        resp.raise_for_status()
+        wf_data = resp.json()
+
+        onfido_status = wf_data.get("status", "processing")
+        output = wf_data.get("output", {}) or {}
+        reasons = wf_data.get("reasons", []) or []
+
+        status_map = {
+            "approved": "approved",
+            "declined": "rejected",
+            "review": "reviewing",
+            "abandoned": "reviewing",
+            "error": "reviewing",
+            "processing": None,
+            "awaiting_input": None,  # user hasn't completed yet
+        }
+        new_status = status_map.get(onfido_status)
+
+        update = {
+            "onfido_data.status": onfido_status,
+            "onfido_data.output": output,
+            "onfido_data.reasons": reasons,
+            "onfido_data.last_polled": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow(),
+        }
+        if new_status:
+            update["status"] = new_status
+            # Keep verification.status in sync with the final outcome
+            update["verification.status"] = new_status
+            if new_status == "rejected":
+                update["rejection_reason"] = (
+                    f"Onfido declined: {', '.join(reasons) if reasons else onfido_status}"
+                )
+                update["reviewed_by"] = "onfido_auto"
+                update["reviewed_at"] = datetime.utcnow()
+            elif new_status == "approved":
+                update["reviewed_by"] = "onfido_auto"
+                update["reviewed_at"] = datetime.utcnow()
+
+        applications_col.update_one({"application_id": app_id}, {"$set": update})
+        audit(
+            app_id,
+            "onfido_result_polled",
+            json.dumps({"onfido_status": onfido_status, "new_status": new_status}),
+        )
+
+        # Re-fetch updated record
+        rec = applications_col.find_one({"application_id": app_id})
+        rec["_id"] = str(rec["_id"])
+        for f in ("created_at", "updated_at", "reviewed_at"):
+            if rec.get(f):
+                rec[f] = rec[f].isoformat()
+
+        return jsonify(
+            {
+                "success": True,
+                "onfido_status": onfido_status,
+                "app_status": new_status or rec.get("status"),
+                "output": output,
+                "reasons": reasons,
+                "application": rec,
+            }
+        )
+
+    except req.exceptions.HTTPError as e:
+        body = e.response.text if e.response else str(e)
+        return jsonify({"success": False, "error": str(e), "details": body}), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/webhooks/onfido", methods=["POST"])
 def onfido_webhook():
     try:
@@ -1709,6 +1995,7 @@ def onfido_webhook():
             "onfido_data.output": output,
             "onfido_data.completed_at": datetime.utcnow().isoformat(),
             "status": new_status,
+            "verification.status": new_status,  # keep in sync with final outcome
             "updated_at": datetime.utcnow(),
         }
         if new_status == "rejected":
@@ -1733,84 +2020,6 @@ def onfido_webhook():
     except Exception as e:
         print(f"✗ Onfido webhook error: {e}")
         return jsonify({"ok": True}), 200
-
-
-@app.route("/api/applications/<app_id>/onfido-result", methods=["GET"])
-def poll_onfido_result(app_id):
-    try:
-        rec = applications_col.find_one({"application_id": app_id})
-        if not rec:
-            return jsonify({"error": "Not found"}), 404
-        onfido = rec.get("onfido_data", {})
-        workflow_run_id = onfido.get("workflow_run_id") if onfido else None
-        if not workflow_run_id:
-            return (
-                jsonify({"success": False, "error": "No Onfido workflow run found"}),
-                400,
-            )
-        headers = {
-            "Authorization": f"Token token={ONFIDO_API_TOKEN}",
-            "Content-Type": "application/json",
-        }
-        resp = req.get(
-            f"{ONFIDO_API_URL}/workflow_runs/{workflow_run_id}",
-            headers=headers,
-            timeout=15,
-        )
-        resp.raise_for_status()
-        wf_data = resp.json()
-        onfido_status = wf_data.get("status", "processing")
-        output = wf_data.get("output", {}) or {}
-        reasons = wf_data.get("reasons", []) or []
-        status_map = {
-            "approved": "approved",
-            "declined": "rejected",
-            "review": "reviewing",
-            "abandoned": "reviewing",
-            "error": "reviewing",
-            "processing": None,
-        }
-        new_status = status_map.get(onfido_status)
-        update = {
-            "onfido_data.status": onfido_status,
-            "onfido_data.output": output,
-            "onfido_data.reasons": reasons,
-            "onfido_data.last_polled": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow(),
-        }
-        if new_status:
-            update["status"] = new_status
-            if new_status == "rejected":
-                update["rejection_reason"] = (
-                    f"Onfido declined: {', '.join(reasons) if reasons else onfido_status}"
-                )
-                update["reviewed_by"] = "onfido_auto"
-                update["reviewed_at"] = datetime.utcnow()
-        applications_col.update_one({"application_id": app_id}, {"$set": update})
-        audit(
-            app_id,
-            "onfido_result_polled",
-            json.dumps({"onfido_status": onfido_status, "new_status": new_status}),
-        )
-        rec = applications_col.find_one({"application_id": app_id})
-        rec["_id"] = str(rec["_id"])
-        for f in ("created_at", "updated_at", "reviewed_at"):
-            if rec.get(f):
-                rec[f] = rec[f].isoformat()
-        return jsonify(
-            {
-                "success": True,
-                "onfido_status": onfido_status,
-                "app_status": new_status or rec.get("status"),
-                "output": output,
-                "reasons": reasons,
-                "application": rec,
-            }
-        )
-    except req.exceptions.HTTPError as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 # ══════════════════════════════════════════════════════════════════════════════
