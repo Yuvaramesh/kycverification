@@ -2245,11 +2245,26 @@
               const detected = details.document_type_detected;
               const country = details.issuing_country_detected;
               let detail = "";
-              if (detected && detected !== "none")
-                detail += "Detected: " + detected;
-              if (country && country.toLowerCase() !== "saudi arabia")
-                detail += (detail ? " · " : "") + "Country: " + country;
-              showError(data.error || "Invalid document.", detail || null);
+              if (
+                country &&
+                country.toLowerCase() !== "saudi arabia" &&
+                country !== "Unknown"
+              ) {
+                detail =
+                  "🇸🇦 Only Saudi Arabia documents accepted · Detected: " +
+                  country;
+              } else if (
+                detected &&
+                detected !== "none" &&
+                detected !== "unknown"
+              ) {
+                detail = "Detected type: " + detected;
+              }
+              showError(
+                data.error ||
+                  "Invalid document. Please upload a Saudi Arabia identity document.",
+                detail || null,
+              );
             } else {
               showError(data.error || "Submission failed.");
             }

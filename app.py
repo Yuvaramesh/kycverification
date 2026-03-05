@@ -837,16 +837,23 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
             result = DeepFace.verify(
                 img1_path=doc_path,
                 img2_path=tmp_frame,
-                model_name="Facenet",
-                enforce_detection=False,
+                model_name="Facenet512",
+                enforce_detection=True,
+                detector_backend="retinaface",
+                distance_metric="cosine",
             )
-            frame_score = round(max(0.0, (1 - result["distance"]) * 100), 2)
+            # Facenet512 cosine: same person < 0.30, strangers >= 0.30
+            # Correct score: 100% at dist=0, 0% at dist=0.30
+            THRESHOLD = 0.30
+            raw_dist = float(result["distance"])
+            frame_score = round(max(0.0, (1.0 - raw_dist / THRESHOLD) * 100), 2)
             scores.append(frame_score)
             per_frame.append(
                 {
                     "frame": i,
                     "score": frame_score,
-                    "matched": frame_score >= 75,
+                    "distance": round(raw_dist, 4),
+                    "matched": frame_score >= 80,
                 }
             )
         except Exception as e:
@@ -871,10 +878,10 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
 
     best_score = round(max(scores), 2)
     median_score = round(float(np.median(scores)), 2)
-    frames_matched = sum(1 for s in scores if s >= 75)
+    frames_matched = sum(1 for s in scores if s >= 80)
 
-    # Match is confirmed if best score >= 60 AND at least 1 frame matched
-    match = best_score >= 75 and frames_matched >= 1
+    # Match confirmed: best score >= 80 means same person (distance < 0.06)
+    match = best_score >= 80 and frames_matched >= 1
 
     return {
         "match": match,
@@ -885,6 +892,137 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
         "frames_matched": frames_matched,
         "per_frame": per_frame,
     }
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SAUDI ARABIA DOCUMENT VALIDATION  (Strict AI gate — Gemini 2.5 Flash)
+#
+#  This function is called BEFORE any DB write in create_application().
+#  It BLOCKS submission of any non-Saudi document.
+#  Three checks:
+#    1. Is this a real identity document? (not a selfie, blank page, screenshot)
+#    2. Is it issued by Saudi Arabia (Kingdom of Saudi Arabia)?
+#    3. Does the type match what the user claimed?
+#
+#  Returns: (is_valid: bool, error_message: str|None, details: dict)
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def validate_document_with_ai(image_path: str, claimed_doc_type: str):
+    """
+    Strictly validates that uploaded document is a Saudi Arabia identity document.
+    Uses Gemini vision AI to inspect the actual image content.
+    Returns (is_valid, error_message, details_dict).
+    """
+    if not GEMINI_API_KEY:
+        # No Gemini key — block everything to be safe
+        print("[doc-validation] GEMINI_API_KEY not set — blocking submission")
+        return (
+            False,
+            "Document validation service is not configured. Please contact support.",
+            {},
+        )
+
+    try:
+        print(
+            f"[doc-validation] Checking document: {image_path}, claimed_type={claimed_doc_type}"
+        )
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
+
+        prompt = """You are a strict KYC document validator for a Saudi Arabia-only verification system.
+
+Examine this image very carefully and answer ALL of the following questions.
+Return ONLY a raw JSON object — no markdown, no code fences, no explanation.
+
+{
+  "is_document": true or false,
+  "issuing_country": "the exact country name printed on this document, or null if not a document",
+  "document_type_detected": "one of: passport | national_id | drivers_license | utility_bill | other | none",
+  "is_saudi_arabia": true or false,
+  "confidence": "high | medium | low",
+  "reason": "one sentence explaining your decision"
+}
+
+Rules:
+- is_document = false if this is a selfie, person photo, screenshot, blank page, or non-document image
+- is_saudi_arabia = true ONLY if the document is clearly issued by Saudi Arabia (Kingdom of Saudi Arabia / المملكة العربية السعودية)
+- Be strict — when in doubt, is_saudi_arabia = false"""
+
+        with open(image_path, "rb") as fh:
+            img_bytes = fh.read()
+
+        # Detect image type
+        ext = image_path.lower().split(".")[-1]
+        mime_map = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "pdf": "application/pdf",
+        }
+        mime_type = mime_map.get(ext, "image/jpeg")
+
+        response = model.generate_content(
+            [prompt, {"mime_type": mime_type, "data": img_bytes}]
+        )
+
+        text = response.text.strip()
+        print(f"[doc-validation] Gemini raw response: {text[:300]}")
+
+        # Strip markdown fences if present
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        text = text.strip()
+
+        data = json.loads(text)
+        print(f"[doc-validation] Parsed: {data}")
+
+        is_doc = bool(data.get("is_document", False))
+        is_saudi = bool(data.get("is_saudi_arabia", False))
+        country = str(data.get("issuing_country") or "Unknown")
+        detected = str(data.get("document_type_detected") or "unknown")
+        reason = str(data.get("reason") or "")
+        confidence = str(data.get("confidence") or "low")
+
+        details = {
+            "issuing_country_detected": country,
+            "document_type_detected": detected,
+            "confidence": confidence,
+            "ai_reason": reason,
+        }
+
+        if not is_doc:
+            return (
+                False,
+                "The uploaded image does not appear to be an identity document. Please upload a clear photo of your Saudi Arabia passport, national ID, or driver's license.",
+                details,
+            )
+
+        if not is_saudi:
+            return (
+                False,
+                f"Only Saudi Arabia documents are accepted. Your document appears to be from: {country}. Please upload a valid Saudi Arabia identity document.",
+                details,
+            )
+
+        print(f"[doc-validation] ✓ Valid Saudi document: {detected} from {country}")
+        return True, None, details
+
+    except json.JSONDecodeError as e:
+        print(f"[doc-validation] JSON parse error: {e} — BLOCKING submission")
+        return (
+            False,
+            "Document validation could not read the AI response. Please try uploading a clearer image.",
+            {},
+        )
+    except Exception as e:
+        print(f"[doc-validation] Error: {e} — BLOCKING submission")
+        return (
+            False,
+            f"Document validation failed: {str(e)}. Please try again.",
+            {},
+        )
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1054,8 +1192,11 @@ def detect_fake_document(image_path):
 
 
 def calculate_risk_score(face_score, liveness_score, fake_doc_confidence, expiry_valid):
-    # Expiry does NOT affect risk or routing — only doc authenticity, face & liveness matter.
     risk = 0
+    if expiry_valid is False:
+        risk += 50
+    elif expiry_valid is None:
+        risk += 20
     if fake_doc_confidence >= 50:
         risk += 30
     elif fake_doc_confidence >= 25:
@@ -1315,16 +1456,10 @@ def run_verification(app_id):
     )
 
     # ── Step 8: Route ─────────────────────────────────────────────────────────
-    # ┌─────────────────────────────────────────────────────────────────┐
-    # │  ROUTING THRESHOLDS  (edit here to tune)                       │
-    # │                                                                 │
-    # │  risk_score  <= 70  →  internal  pending_review  (ln 1333)     │
-    # │  risk_score  >  70  →  Onfido    pending_onfido  (ln 1343)     │
-    # │  liveness    <   5  →  Onfido    pending_onfido  (ln 1347)     │
-    # │  (face match & expiry do NOT independently trigger Onfido)     │
-    # └─────────────────────────────────────────────────────────────────┘
-    INTERNAL_RISK_MAX = 70  # risk must be <= this for internal routing
-    INTERNAL_LIVE_MIN = 5  # liveness must be >= this (if measured)
+    # risk <= 50 AND liveness >= 5  →  internal pending_review  (admin decides)
+    # risk >  50 OR  liveness <  5  →  Onfido  pending_onfido   (auto-escalate)
+    INTERNAL_RISK_MAX = 50
+    INTERNAL_LIVE_MIN = 5
 
     verification_method = "internal"
     status = "pending_review"  # admin manually approves / rejects / escalates
@@ -1332,24 +1467,22 @@ def run_verification(app_id):
     onfido_data = None
 
     live_score_val = live_result.get("score")
-
     escalation_reasons = []
 
-    # Condition 1 — high risk score
+    # Escalate to Onfido if risk too high
     if risk_score > INTERNAL_RISK_MAX:
         escalation_reasons.append(f"risk_score={risk_score} (>{INTERNAL_RISK_MAX})")
 
-    # Condition 2 — liveness too low (only when actually measured, not N/A)
+    # Escalate if liveness is essentially zero (not measured at all)
     if live_score_val is not None and live_score_val < INTERNAL_LIVE_MIN:
         escalation_reasons.append(
-            f"liveness={round(live_score_val, 1)} (<{INTERNAL_LIVE_MIN})"
+            f"liveness={round(live_score_val,1)} (<{INTERNAL_LIVE_MIN})"
         )
 
     needs_onfido = len(escalation_reasons) > 0
 
     if needs_onfido:
         verification_method = "onfido"
-        status = "pending_onfido"
         print(f"[{app_id}] Escalating to Onfido: {', '.join(escalation_reasons)}")
         onfido_resp = send_to_onfido(app_id, ocr_name)
         onfido_data = {
@@ -1360,10 +1493,7 @@ def run_verification(app_id):
             "success": onfido_resp.get("success", False),
             "escalation_reasons": escalation_reasons,
         }
-    else:
-        print(
-            f"[{app_id}] risk={risk_score} ≤ {INTERNAL_RISK_MAX} → internal pending_review"
-        )
+        status = "pending_onfido"
 
     update = {
         "verification": {
@@ -1494,25 +1624,21 @@ def get_country_documents(country_code):
 def create_application():
     """
     Accepts multipart/form-data with:
-      country_code    : ISO 3166-1 alpha-2 (required)
-      document_id     : document ID from country config (required)
-      document_type   : passport | drivers_license | national_id (required)
+      country_code    : ISO 3166-1 alpha-2
+      document_id     : document ID from country config
+      document_type   : passport | drivers_license | national_id
       document_front  : image file (required)
       document_back   : image file (optional)
-      selfie_video    : video file — MP4/WebM (required, replaces selfie_photo)
+      selfie_video    : video file — MP4/WebM (required)
 
-    selfie_video is processed server-side:
-      - frames extracted
-      - liveness computed from motion / blink across frames
-      - face matched against document across all frames (best score used)
+    STRICT VALIDATION: Gemini AI checks document is Saudi Arabia before
+    any data is saved. Non-Saudi documents are blocked immediately.
     """
     try:
         country_code = request.form.get("country_code", "SA").upper()
         document_id = request.form.get("document_id", "")
         doc_type = request.form.get("document_type", "passport")
 
-        # Saudi Arabia is the only supported country — skip country/doc validation
-        SAUDI_DOCS = ["passport", "national_id", "drivers_license", "utility_bill"]
         if not doc_type:
             doc_type = "passport"
         if not document_id:
@@ -1527,7 +1653,6 @@ def create_application():
                 400,
             )
 
-        # Accept either selfie_video (new) or selfie_photo (legacy fallback)
         has_video = (
             "selfie_video" in request.files and request.files["selfie_video"].filename
         )
@@ -1537,6 +1662,53 @@ def create_application():
         if not has_video and not has_photo:
             return jsonify({"success": False, "error": "selfie_video is required"}), 400
 
+        # ══════════════════════════════════════════════════════════════════════
+        # STRICT SAUDI ARABIA DOCUMENT VALIDATION
+        # Run Gemini AI check BEFORE saving anything to DB or GridFS.
+        # If the document is not Saudi Arabia, block immediately with 422.
+        # ══════════════════════════════════════════════════════════════════════
+        doc_front_file = request.files["document_front"]
+        doc_front_file.seek(0)
+
+        # Save to a temp file for Gemini to inspect
+        import tempfile as _tf
+
+        _ext = (
+            os.path.splitext(secure_filename(doc_front_file.filename or "doc.jpg"))[1]
+            or ".jpg"
+        )
+        _tmp_fd, _tmp_path = _tf.mkstemp(suffix=_ext)
+        try:
+            with os.fdopen(_tmp_fd, "wb") as _tmpf:
+                _tmpf.write(doc_front_file.read())
+
+            is_valid, err_msg, val_details = validate_document_with_ai(
+                _tmp_path, doc_type
+            )
+        finally:
+            try:
+                os.remove(_tmp_path)
+            except Exception:
+                pass
+
+        # Reset file stream so it can be read again for GridFS
+        doc_front_file.seek(0)
+
+        if not is_valid:
+            print(f"[create_application] BLOCKED — {err_msg}")
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": err_msg,
+                        "error_code": "INVALID_DOCUMENT",
+                        "validation_details": val_details,
+                    }
+                ),
+                422,
+            )
+
+        # ── Document passed validation — proceed with application ─────────────
         app_id = generate_app_id()
 
         file_ids = {}
@@ -1545,7 +1717,6 @@ def create_application():
             if f and f.filename and allowed_file(f.filename):
                 file_ids[field] = save_to_gridfs(f, app_id, field)
 
-        # Save selfie video (preferred) or photo (legacy)
         if has_video:
             f = request.files["selfie_video"]
             if allowed_file(f.filename):
@@ -1560,6 +1731,7 @@ def create_application():
             "country_code": country_code,
             "document_id": document_id,
             "document_type": doc_type,
+            "ai_validation": val_details,
             "files": file_ids,
             "ocr_data": None,
             "ocr_confidence": None,
@@ -1577,7 +1749,8 @@ def create_application():
         audit(
             app_id,
             "application_created",
-            f"country={country_code} doc_id={document_id} doc_type={doc_type} has_video={has_video}",
+            f"country={country_code} doc_id={document_id} doc_type={doc_type} "
+            f"ai_country={val_details.get('issuing_country_detected')} has_video={has_video}",
         )
 
         threading.Thread(target=run_verification, args=(app_id,), daemon=True).start()
@@ -1587,7 +1760,7 @@ def create_application():
                 {
                     "success": True,
                     "application_id": app_id,
-                    "message": "Files received. Video analysis and verification is running.",
+                    "message": "Saudi Arabia document verified. Processing your application.",
                 }
             ),
             201,
@@ -1662,14 +1835,7 @@ def review_application(app_id):
 @app.route("/api/stats", methods=["GET"])
 @admin_required
 def get_stats():
-    statuses = [
-        "processing",
-        "approved",
-        "rejected",
-        "reviewing",
-        "pending_onfido",
-        "pending_review",
-    ]
+    statuses = ["processing", "approved", "rejected", "reviewing", "pending_onfido"]
     counts = {s: applications_col.count_documents({"status": s}) for s in statuses}
     total = applications_col.count_documents({})
     counts["total"] = total

@@ -1,0 +1,379 @@
+{
+  "countries": [
+    {
+      "code": "GB",
+      "name": "United Kingdom",
+      "region": "Europe",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Passport",
+          "description": "UK Passport issued by the Home Office",
+          "docType": "passport"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driving License",
+          "description": "UK/DVLA Driving License",
+          "docType": "drivers_license"
+        },
+        {
+          "id": "national_id",
+          "name": "National ID Card",
+          "description": "UK National Identity Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, water, landline or broadband bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank or Building Society Statement",
+          "description": "Bank statement or building society statement (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "council_tax",
+          "name": "Council Tax Letter",
+          "description": "Council tax statement or letter from local government (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "mortgage_statement",
+          "name": "Mortgage Statement",
+          "description": "Mortgage statement from a financial lending institution (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "US",
+      "name": "United States",
+      "region": "North America",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "US Passport",
+          "description": "US Passport Book",
+          "docType": "passport"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driver's License",
+          "description": "State-issued Driver's License or ID Card",
+          "docType": "drivers_license"
+        },
+        {
+          "id": "national_id",
+          "name": "State ID",
+          "description": "State-issued Identification Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, water bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement or financial institution statement (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "CA",
+      "name": "Canada",
+      "region": "North America",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Canadian Passport",
+          "description": "Canadian Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driver's License",
+          "description": "Provincial/Territorial Driver's License",
+          "docType": "drivers_license"
+        },
+        {
+          "id": "national_id",
+          "name": "Provincial ID",
+          "description": "Provincial/Territorial ID Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, water, or internet bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank or credit union statement (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "benefits_letter",
+          "name": "Benefits Letter",
+          "description": "Government benefits letter (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "AU",
+      "name": "Australia",
+      "region": "Oceania",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Australian Passport",
+          "description": "Australian Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driver's License",
+          "description": "State or Territory Driver's License",
+          "docType": "drivers_license"
+        },
+        {
+          "id": "national_id",
+          "name": "State ID",
+          "description": "State or Territory ID Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, water bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "DE",
+      "name": "Germany",
+      "region": "Europe",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "German Passport",
+          "description": "German Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "Personalausweis",
+          "description": "German National ID Card (Personalausweis)",
+          "docType": "national_id"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driving License",
+          "description": "German Driving License",
+          "docType": "drivers_license"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, water bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "anmeldung",
+          "name": "Anmeldung",
+          "description": "Registration confirmation from local authority",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "FR",
+      "name": "France",
+      "region": "Europe",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "French Passport",
+          "description": "French Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "Carte d'Identité",
+          "description": "French National ID Card (Carte d'Identité)",
+          "docType": "national_id"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driving License",
+          "description": "French Driving License (Permis de Conduire)",
+          "docType": "drivers_license"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, water, or phone bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "IN",
+      "name": "India",
+      "region": "Asia",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Indian Passport",
+          "description": "Indian Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "Aadhaar Card",
+          "description": "UIDAI Aadhaar Card",
+          "docType": "national_id"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driving License",
+          "description": "Indian Driving License",
+          "docType": "drivers_license"
+        },
+        {
+          "id": "pan_card",
+          "name": "PAN Card",
+          "description": "Income Tax PAN Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Electricity or water bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "SG",
+      "name": "Singapore",
+      "region": "Asia",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Singapore Passport",
+          "description": "Singapore Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "NRIC",
+          "description": "National Registration Identity Card (NRIC)",
+          "docType": "national_id"
+        },
+        {
+          "id": "fin_card",
+          "name": "FIN Card",
+          "description": "Foreign Identification Number (FIN) Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Gas, electricity, or water bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
+      "code": "DZ",
+      "name": "Algeria",
+      "region": "Africa",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Algerian Passport",
+          "description": "Algerian Passport",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "National ID Card",
+          "description": "Algerian National ID Card",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Utility or phone bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "accommodation_certificate",
+          "name": "Accommodation Certificate",
+          "description": "Accommodation or tenancy certificate from government authority",
+          "docType": "address"
+        }
+      ]
+    }
+  ]
+}
