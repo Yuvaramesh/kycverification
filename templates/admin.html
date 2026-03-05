@@ -309,6 +309,10 @@
         background: #dbeafe;
         color: #1e3a8a;
       }
+      .b-pending_review {
+        background: #fff7ed;
+        color: #9a3412;
+      }
       .b-processing {
         background: #fef9c3;
         color: #92400e;
@@ -901,6 +905,27 @@
       .btn-rej:hover {
         background: #fecaca;
       }
+      .btn-onfido-link {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 11px 14px;
+        background: #1e3a8a;
+        border: none;
+        border-radius: 9px;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: #fff;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s;
+      }
+      .btn-onfido-link:hover {
+        background: #1e40af;
+      }
 
       @media (max-width: 900px) {
         .stats {
@@ -1057,6 +1082,9 @@
       <button class="fb" onclick="setFilter(this, 'processing')">
         Processing
       </button>
+      <button class="fb" onclick="setFilter(this, 'pending_review')">
+        Internal Review
+      </button>
       <button class="fb" onclick="setFilter(this, 'approved')">Approved</button>
       <button class="fb" onclick="setFilter(this, 'rejected')">Rejected</button>
       <button class="fb" onclick="setFilter(this, 'pending_onfido')">
@@ -1160,6 +1188,7 @@
           setText("s-tot", s.total ?? "—");
           setText("s-app", s.approved ?? "—");
           setText("s-rej", s.rejected ?? "—");
+          setText("s-rev", s.pending_review ?? "—");
           setText("s-onf", s.pending_onfido ?? "—");
           setText("s-pro", s.processing ?? "—");
           setText("s-rate", (s.approval_rate ?? "—") + "%");
@@ -1247,6 +1276,7 @@
         const lbl = {
           approved: "✓ Approved",
           rejected: "✗ Rejected",
+          pending_review: "⏸ Internal Review",
           pending_onfido: "⟳ Onfido",
           processing: "⏳ Processing",
           reviewing: "◎ Review",
@@ -1313,78 +1343,6 @@
                 ? "#d97706"
                 : "#dc2626";
 
-        /* ── Onfido result card ── */
-        let onfHtml = "";
-        if (v.method === "onfido" || onf.workflow_run_id) {
-          const os = onf.status || "processing";
-          const osCls =
-            {
-              approved: "os-approved",
-              declined: "os-declined",
-              review: "os-review",
-              processing: "os-processing",
-            }[os] || "os-processing";
-          const reasons = onf.escalation_reasons || [];
-          const output = onf.output;
-          const isDone =
-            ["approved", "declined", "review"].includes(os) && onf.completed_at;
-
-          // Final verdict block
-          let verdictHtml = "";
-          if (os === "approved") {
-            // Onfido approved — but admin still makes the final decision
-            const adminDecided =
-              app.status === "approved" || app.status === "rejected";
-            if (adminDecided) {
-              verdictHtml = `<div class="verdict vp"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M20 6L9 17l-5-5"/></svg></div><div class="verdict-text"><strong>Onfido Approved</strong><p>Identity successfully verified by Onfido.</p></div></div>`;
-            } else {
-              verdictHtml = `<div class="verdict vp" style="background:linear-gradient(135deg,#1d4ed8,#2563eb)"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M20 6L9 17l-5-5"/></svg></div><div class="verdict-text"><strong>Onfido Recommends Approval</strong><p>Onfido verified this identity. <strong>Use the buttons below to make your final decision.</strong></p></div></div>`;
-            }
-          } else if (os === "declined") {
-            verdictHtml = `<div class="verdict vr"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M18 6L6 18M6 6l12 12"/></svg></div><div class="verdict-text"><strong>Onfido Declined</strong><p>Verification declined by Onfido. ${app.rejection_reason || ""}</p></div></div>`;
-          } else if (os === "review") {
-            verdictHtml = `<div class="verdict vw"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M12 9v4M12 17h.01"/></svg></div><div class="verdict-text"><strong>Manual Review Required</strong><p>Onfido flagged this for human review.</p></div></div>`;
-          }
-
-          const outputHtml =
-            output && Object.keys(output).length
-              ? `<div class="onf-out">${JSON.stringify(output, null, 2)}</div>`
-              : "";
-
-          onfHtml = `
-    <div class="sl">Onfido External Verification</div>
-    <div class="onf-card">
-      <div class="onf-head">
-        <div class="onf-head-left">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Onfido Verification Result</span>
-        </div>
-        <div class="onf-head-right">
-          <span class="os-badge ${osCls}">${os}</span>
-          <button class="btn-poll" id="pollBtn" onclick="doPoll('${app.application_id}')">
-            <div class="spin"></div>
-            <span class="pl">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-1px;margin-right:3px"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>Refresh
-            </span>
-          </button>
-        </div>
-      </div>
-      <div class="onf-body">
-        ${verdictHtml}
-        <div class="onf-meta">
-          <div class="om-item"><div class="ol">Applicant ID</div><div class="ov">${onf.applicant_id || "—"}</div></div>
-          <div class="om-item"><div class="ol">Workflow Run ID</div><div class="ov">${onf.workflow_run_id || "—"}</div></div>
-          <div class="om-item"><div class="ol">Submitted</div><div class="ov">${onf.submitted_at ? new Date(onf.submitted_at).toLocaleString() : "—"}</div></div>
-          <div class="om-item"><div class="ol">Completed</div><div class="ov">${onf.completed_at ? new Date(onf.completed_at).toLocaleString() : "—"}</div></div>
-          ${onf.last_polled ? `<div class="om-item"><div class="ol">Last Checked</div><div class="ov">${new Date(onf.last_polled).toLocaleString()}</div></div>` : ""}
-        </div>
-        ${reasons.length ? `<div class="esc-wrap"><div class="esc-label">Escalation Reasons</div>${reasons.map((r) => `<span class="chip">${r}</span>`).join("")}</div>` : ""}
-        ${outputHtml}
-        <div class="poll-msg" id="pollMsg"></div>
-      </div>
-    </div>`;
-        }
-
         /* ── Scores ── */
         const faceScore = face.score ?? null;
         const liveScore = live.score ?? null;
@@ -1420,10 +1378,7 @@
       <div class="v" style="color:${liveColor}">${liveScore !== null ? Math.round(liveScore) + "%" : "—"}</div>
       <div class="s">${live.is_live ? "✓ Live detected" : liveScore !== null ? "✗ Failed" : "N/A"}</div>
     </div>
-    <div class="sc-card">
-      <div class="l">Document Expiry</div>
-      <div class="v" style="font-size:.95rem;color:${exp.is_valid ? "var(--green)" : exp.is_expired ? "var(--red)" : "var(--soft)"}">${exp.expiry_date || "—"}</div>
-      <div class="s">${exp.is_expired ? "✗ Expired" : exp.is_expiring_soon ? "⚠ Soon" : exp.is_valid ? "✓ Valid" : exp.error || "N/A"}</div>
+    
     </div>
   </div>`;
 
@@ -1440,18 +1395,7 @@
               fake.reasons?.[0] ||
               (fake.is_fake ? "" : "No tampering detected"),
           },
-          {
-            name: "Expiry Check",
-            dot: exp.is_valid ? "dg" : exp.is_expired ? "dr" : "da",
-            val: exp.is_valid
-              ? "Valid"
-              : exp.is_expired
-                ? "Expired"
-                : "Unverified",
-            note: exp.expiry_date
-              ? `Expires ${exp.expiry_date}`
-              : exp.error || "",
-          },
+
           {
             name: "Face Match",
             dot: face.match ? "dg" : faceScore !== null ? "dr" : "dx",
@@ -1490,7 +1434,7 @@
               v.method === "onfido"
                 ? onf_reasons
                 : v.method === "internal"
-                  ? "All checks passed internally"
+                  ? `risk_score=${v.risk_score ?? "—"} (≥50) — awaiting admin decision`
                   : "",
           },
         ];
@@ -1570,28 +1514,24 @@
     </div>
   </div>`;
 
-        /* ── Review actions ── */
-        const canReview = [
-          "reviewing",
-          "pending_onfido",
-          "processing",
-        ].includes(app.status);
-        const revHtml = canReview
-          ? `
+        /* ── Review actions — always 3 buttons ── */
+        const onfidoDashUrl = onf.workflow_run_id
+          ? `https://dashboard.onfido.com/results/${onf.workflow_run_id}`
+          : "https://dashboard.onfido.com/";
+
+        const revHtml = `
   <div class="rev-actions">
     <button class="btn-apv" onclick="mAction('${app.application_id}','approve')">✓ Approve</button>
     <button class="btn-rej" onclick="mAction('${app.application_id}','reject')">✗ Reject</button>
-  </div>`
-          : "";
+    <a class="btn-onfido-link" href="${onfidoDashUrl}" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Open in Onfido
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+    </a>
+  </div>`;
 
         document.getElementById("mb").innerHTML =
-          onfHtml +
-          scoresHtml +
-          chksHtml +
-          ocrHtml +
-          filesHtml +
-          metaHtml +
-          revHtml;
+          scoresHtml + chksHtml + ocrHtml + filesHtml + metaHtml + revHtml;
       }
 
       function closeModal() {

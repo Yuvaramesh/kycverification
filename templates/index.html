@@ -147,27 +147,27 @@
       .sidebar-user {
         display: flex;
         align-items: center;
-        gap: 9px;
-        padding: 9px 12px;
+        gap: 10px;
+        padding: 10px 12px;
         background: rgba(255, 255, 255, 0.08);
         border-radius: 10px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
       }
       .sidebar-avatar {
-        width: 28px;
-        height: 28px;
+        width: 30px;
+        height: 30px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.2);
         display: grid;
         place-items: center;
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         font-weight: 700;
         color: #fff;
         flex-shrink: 0;
         overflow: hidden;
       }
       .sidebar-username {
-        font-size: 0.78rem;
+        font-size: 0.8rem;
         font-weight: 500;
         color: rgba(255, 255, 255, 0.85);
         white-space: nowrap;
@@ -181,18 +181,18 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 7px;
-        padding: 8px 14px;
+        gap: 8px;
+        padding: 9px 14px;
         background: rgba(220, 38, 38, 0.15);
         border: 1px solid rgba(220, 38, 38, 0.3);
         border-radius: 9px;
         color: #fca5a5;
         font-family: "DM Sans", sans-serif;
-        font-size: 0.8rem;
+        font-size: 0.82rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
       }
       .btn-signout:hover {
         background: rgba(220, 38, 38, 0.28);
@@ -1143,78 +1143,6 @@
           max-width: 100%;
         }
       }
-      /* ── Onfido redirect button ── */
-      .btn-onfido-verify {
-        display: inline-flex;
-        align-items: center;
-        gap: 9px;
-        padding: 13px 22px;
-        background: #1d4ed8;
-        color: #fff;
-        border: none;
-        border-radius: 11px;
-        font-family: "DM Sans", sans-serif;
-        font-size: 0.92rem;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 18px;
-        transition: all 0.2s;
-        box-shadow: 0 4px 14px rgba(29, 78, 216, 0.35);
-      }
-      .btn-onfido-verify:hover {
-        background: #1e40af;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(29, 78, 216, 0.45);
-      }
-      .btn-onfido-verify:disabled {
-        opacity: 0.55;
-        cursor: not-allowed;
-        transform: none;
-      }
-      .onfido-reasons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 10px;
-      }
-      .onfido-reason-tag {
-        background: rgba(37, 99, 235, 0.1);
-        color: #1e3a8a;
-        font-size: 0.7rem;
-        font-weight: 600;
-        padding: 3px 9px;
-        border-radius: 5px;
-        font-family: "DM Mono", monospace;
-        border: 1px solid rgba(37, 99, 235, 0.18);
-      }
-      .onfido-waiting-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-top: 14px;
-        font-size: 0.82rem;
-        color: #4a5260;
-      }
-      .pulse-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: #2563eb;
-        flex-shrink: 0;
-        animation: pulseDot 1.4s ease-in-out infinite;
-      }
-      @keyframes pulseDot {
-        0%,
-        100% {
-          opacity: 1;
-          transform: scale(1);
-        }
-        50% {
-          opacity: 0.35;
-          transform: scale(0.7);
-        }
-      }
-
       @media (max-width: 600px) {
         .doc-type-grid {
           grid-template-columns: 1fr 1fr;
@@ -1268,6 +1196,7 @@
           </div>
         </nav>
         <div class="sidebar-footer">
+          <!-- User info -->
           <div
             class="sidebar-user"
             id="sidebar-user-info"
@@ -1276,6 +1205,7 @@
             <div class="sidebar-avatar" id="sidebar-avatar"></div>
             <span class="sidebar-username" id="sidebar-username"></span>
           </div>
+          <!-- Sign Out -->
           <button class="btn-signout" onclick="handleSignout()">
             <svg
               width="13"
@@ -1982,37 +1912,6 @@
     <script>
       /* ══ State ══ */
       let selectedCountry = "SA"; // Hardcoded: Saudi Arabia
-      // ── Auth: load user info + sign out ──────────────────────────────────────
-      fetch("/api/auth/me")
-        .then((r) => r.json())
-        .then((d) => {
-          if (!d.authenticated) {
-            window.location.replace("/login.html");
-            return;
-          }
-          const u = d.user;
-          const avatarEl = document.getElementById("sidebar-avatar");
-          const nameEl = document.getElementById("sidebar-username");
-          const infoEl = document.getElementById("sidebar-user-info");
-          if (nameEl) nameEl.textContent = u.name || u.email || "User";
-          if (avatarEl) {
-            if (u.avatar) {
-              avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
-            } else {
-              avatarEl.textContent = (u.name ||
-                u.email ||
-                "U")[0].toUpperCase();
-            }
-          }
-          if (infoEl) infoEl.style.display = "flex";
-        })
-        .catch(() => window.location.replace("/login.html"));
-
-      async function handleSignout() {
-        await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-        window.location.href = "/login.html";
-      }
-
       let selectedDocType = "passport";
       let selectedDocumentId = "passport";
       let files = {}; // { field: File | Blob }
@@ -2025,30 +1924,7 @@
       let videoMode = "record"; // 'record' | 'upload'
       const RECORD_SECONDS = 5;
 
-      /* ══ Boot — check if returning from Onfido ══ */
-      (function checkOnfidoReturn() {
-        const pendingId = sessionStorage.getItem("onfido_pending_app_id");
-        if (!pendingId) return;
-        sessionStorage.removeItem("onfido_pending_app_id");
-        currentAppId = pendingId;
-        // Defer until DOM is fully ready
-        document.addEventListener("DOMContentLoaded", function () {
-          goToStep2();
-          document.getElementById("statusBadge").textContent =
-            "⟳ Awaiting Result";
-          document.getElementById("statusBadge").className =
-            "result-status status-pending";
-          document.getElementById("resultTitle").textContent =
-            "Onfido Verification Complete";
-          document.getElementById("resultSubtitle").textContent =
-            "Fetching your verification result from Onfido…";
-          document.getElementById("appIdText").textContent = pendingId;
-          document.getElementById("pollingWrap").style.display = "";
-          document.getElementById("restartBtn").style.display = "none";
-          startOnfidoResultPolling();
-        });
-      })();
-
+      /* ══ Boot ══ */
       document.getElementById("zone-back").style.opacity = "0.4";
       document.getElementById("zone-back").style.pointerEvents = "none";
 
@@ -2363,7 +2239,23 @@
             body: fd,
           });
           const data = await res.json();
-          if (!data.success) throw new Error(data.error || "Submission failed");
+          if (!data.success) {
+            if (res.status === 422 || data.error_code === "INVALID_DOCUMENT") {
+              const details = data.validation_details || {};
+              const detected = details.document_type_detected;
+              const country = details.issuing_country_detected;
+              let detail = "";
+              if (detected && detected !== "none")
+                detail += "Detected: " + detected;
+              if (country && country.toLowerCase() !== "saudi arabia")
+                detail += (detail ? " · " : "") + "Country: " + country;
+              showError(data.error || "Invalid document.", detail || null);
+            } else {
+              showError(data.error || "Submission failed.");
+            }
+            setLoading(false);
+            return;
+          }
           currentAppId = data.application_id;
           stopCamera();
           goToStep2();
@@ -2397,47 +2289,9 @@
           const res = await fetch(`/api/applications/${currentAppId}`);
           const data = await res.json();
           if (!data.success) return;
-          const status = data.application.status;
-          if (status === "processing") return; // still running
-          clearInterval(pollTimer);
-          renderResult(data.application);
-          if (status === "pending_onfido") {
-            injectOnfidoButton(data.application); // show redirect button
-          }
-        } catch (_) {}
-      }
-
-      /* ── Poll Onfido result after user completes verification ── */
-      let onfidoResultTimer = null;
-      function startOnfidoResultPolling() {
-        // Poll immediately once, then every 5s
-        pollOnfidoResult();
-        onfidoResultTimer = setInterval(pollOnfidoResult, 5000);
-      }
-      async function pollOnfidoResult() {
-        try {
-          const res = await fetch(
-            `/api/applications/${currentAppId}/onfido-result`,
-          );
-          const data = await res.json();
-          if (!data.success) return;
-          const finalStatus = data.app_status;
-          // awaiting_input = user hasn't finished on Onfido yet; keep waiting
-          if (
-            !finalStatus ||
-            finalStatus === "pending_onfido" ||
-            finalStatus === "processing" ||
-            finalStatus === "awaiting_input"
-          )
-            return;
-          // Got a terminal status — stop polling and show result
-          clearInterval(onfidoResultTimer);
-          const appRes = await fetch(`/api/applications/${currentAppId}`);
-          const appData = await appRes.json();
-          if (appData.success) {
-            renderResult(appData.application);
-            const area = document.getElementById("onfido-action-area");
-            if (area) area.remove();
+          if (data.application.status !== "processing") {
+            clearInterval(pollTimer);
+            renderResult(data.application);
           }
         } catch (_) {}
       }
@@ -2445,264 +2299,58 @@
       /* ══ Render result ══ */
       function renderResult(app) {
         const v = app.verification || {};
-        const risk = v.risk_score ?? null;
+        const isOnfido =
+          v.method === "onfido" || app.status === "pending_onfido";
 
-        const statusMap = {
-          approved: [
-            "✓ Approved",
-            "status-approved",
-            "Identity Verified",
-            "Your documents and liveness video passed all automated checks.",
-          ],
-          rejected: [
-            "✗ Rejected",
-            "status-rejected",
-            "Verification Failed",
-            app.rejection_reason || "Documents did not pass verification.",
-          ],
-          pending_onfido: [
-            "⟳ Action Required",
-            "status-pending",
-            "Identity Check Required",
-            "Some checks couldn't be completed automatically. Please complete verification via Onfido.",
-          ],
-          reviewing: [
-            "◎ Manual Review",
-            "status-reviewing",
-            "Under Manual Review",
-            "An agent will review your submission shortly.",
-          ],
-        };
-        const [badge, cls, title, sub] = statusMap[app.status] || [
-          "⏳ Processing",
-          "status-processing",
-          "Processing…",
-          "",
-        ];
+        // ── Status badge & heading ──────────────────────────────────────────
+        let badge, cls, title, sub;
+        if (app.status === "rejected") {
+          badge = "✗ Rejected";
+          cls = "status-rejected";
+          title = "Verification Failed";
+          sub = app.rejection_reason || "Documents did not pass verification.";
+        } else if (app.status === "reviewing") {
+          badge = "◎ Manual Review";
+          cls = "status-reviewing";
+          title = "Under Manual Review";
+          sub = "An agent will review your submission shortly.";
+        } else if (isOnfido) {
+          badge = "⟳ Submitted";
+          cls = "status-pending";
+          title = "Submitted for Verification";
+          sub =
+            "Your documents are being verified either by Onfido or internally. You will be notified once the review is complete.";
+        } else {
+          // internal pass
+          badge = "✓ Submitted";
+          cls = "status-approved";
+          title = "Submitted for Internal Verification";
+          sub =
+            "Your documents have been received and passed automated checks. Our team will finalise the review shortly.";
+        }
+
         document.getElementById("statusBadge").textContent = badge;
         document.getElementById("statusBadge").className =
           "result-status " + cls;
         document.getElementById("resultTitle").textContent = title;
         document.getElementById("resultSubtitle").textContent = sub;
 
-        if (risk !== null) {
-          document.getElementById("metricsGrid").style.display = "";
-          const rv = Math.round(risk);
-          document.getElementById("riskValue").textContent = rv + " / 100";
-          document.getElementById("riskBar").style.width = rv + "%";
-          const riskCell = document.getElementById("riskCell");
-          if (rv < 50) {
-            riskCell.className = "metric-cell risk-low";
-            document.getElementById("riskSub").textContent =
-              "Low risk — internal";
-          } else if (rv < 75) {
-            riskCell.className = "metric-cell risk-mid";
-            document.getElementById("riskSub").textContent =
-              "Medium risk — Onfido";
-          } else {
-            riskCell.className = "metric-cell risk-high";
-            document.getElementById("riskSub").textContent =
-              "High risk — Onfido";
-          }
-
-          const face = v.face_match || {};
-          const framesChecked = face.frames_checked || 0;
-          const framesMatched = face.frames_matched || 0;
-          document.getElementById("faceValue").textContent =
-            face.score != null ? Math.round(face.score) + "%" : "—";
-          document.getElementById("faceSub").textContent =
-            face.score != null
-              ? `${face.match ? "✓ Match confirmed" : "✗ No match"} · ${framesMatched}/${framesChecked} frames`
-              : "—";
-
-          const live = v.liveness || {};
-          document.getElementById("liveValue").textContent =
-            live.score != null ? Math.round(live.score) + "%" : "—";
-          const liveDetails = [
-            live.blink_detected ? "✓ Blink detected" : "✗ No blink",
-            live.motion_score != null
-              ? `motion ${Math.round(live.motion_score)}`
-              : "",
-            live.frame_count ? `${live.frame_count} frames` : "",
-          ]
-            .filter(Boolean)
-            .join(" · ");
-          document.getElementById("liveSub").textContent =
-            live.score != null ? liveDetails : "—";
-
-          const exp = v.expiry || {};
-          document.getElementById("expiryValue").textContent =
-            exp.expiry_date || "—";
-          document.getElementById("expirySub").textContent = exp.is_expired
-            ? "✗ Expired"
-            : exp.is_expiring_soon
-              ? "⚠ Expiring soon"
-              : exp.expiry_date
-                ? "✓ Valid"
-                : exp.error || "Could not extract";
-        }
-
-        // Checks
-        const fake = v.fake_document || {};
-        const face = v.face_match || {};
-        const live = v.liveness || {};
-        const checks = [
-          {
-            name: "Document Authenticity",
-            value: fake.is_fake ? "Suspicious" : "Passed",
-            dot: fake.is_fake ? "dot-red" : "dot-green",
-            note:
-              fake.reasons?.[0] ||
-              (fake.is_fake ? "" : "No tampering detected"),
-          },
-          {
-            name: "Expiry Check",
-            value: (v.expiry || {}).is_valid
-              ? "Valid"
-              : (v.expiry || {}).is_expired
-                ? "Expired"
-                : "Unverified",
-            dot: (v.expiry || {}).is_valid
-              ? "dot-green"
-              : (v.expiry || {}).is_expired
-                ? "dot-red"
-                : "dot-amber",
-            note: (v.expiry || {}).expiry_date
-              ? "Expires " + (v.expiry || {}).expiry_date
-              : "",
-          },
-          {
-            name: "Face Match (video frames)",
-            value: face.match ? "Matched" : "No match",
-            dot: face.match ? "dot-green" : "dot-red",
-            note:
-              face.score != null
-                ? `Best: ${Math.round(face.score)}% · Median: ${Math.round(face.median_score || 0)}% · ${face.frames_matched || 0}/${face.frames_checked || 0} frames passed`
-                : "",
-          },
-          {
-            name: "Liveness (motion + blink)",
-            value: live.is_live ? "Live" : "Failed",
-            dot: live.is_live ? "dot-green" : "dot-amber",
-            note: [
-              live.blink_detected ? "Blink detected" : "No blink",
-              live.motion_score != null
-                ? `motion=${Math.round(live.motion_score)}`
-                : "",
-              live.frame_count ? `${live.frame_count} frames analysed` : "",
-            ]
-              .filter(Boolean)
-              .join(" · "),
-          },
-          {
-            name: "Verification Method",
-            value: v.method === "onfido" ? "Onfido (External)" : "Internal",
-            dot: v.method === "onfido" ? "dot-blue" : "dot-green",
-            note:
-              v.method === "onfido"
-                ? ((app.onfido_data || {}).escalation_reasons || []).join(
-                    " · ",
-                  ) || "Escalated for review"
-                : "All checks passed internally",
-          },
-        ];
-
-        document.getElementById("checksContainer").innerHTML = checks
-          .map(
-            (c) => `
-          <div class="check-item">
-            <div class="check-dot ${c.dot}"></div>
-            <div class="check-name">${c.name}
-              ${c.note ? `<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:2px">${c.note}</div>` : ""}
-            </div>
-            <div class="check-val">${c.value}</div>
-          </div>`,
-          )
-          .join("");
-        document.getElementById("checksList").style.display = "";
-
-        // Route badge
+        // ── Route badge (simplified) ────────────────────────────────────────
         const rb = document.getElementById("routeBadge");
         rb.style.display = "";
         if (app.status === "rejected") {
           rb.innerHTML = `<div class="route-badge route-rejected"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="route-text"><strong>Verification Rejected</strong><p>${app.rejection_reason || "Did not pass automated verification."}</p></div></div>`;
-        } else if (v.method === "onfido") {
-          const reasons = (app.onfido_data || {}).escalation_reasons || [];
-          const reasonsHtml = reasons.length
-            ? `<div class="onfido-reasons">${reasons.map((r) => `<span class="onfido-reason-tag">${r}</span>`).join("")}</div>`
-            : "";
-          if (app.status === "pending_onfido") {
-            rb.innerHTML = `<div class="route-badge route-onfido"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="route-text"><strong>Onfido Verification Required</strong><p>The following checks need re-verification via Onfido's secure platform:${reasonsHtml}</p></div></div>`;
-          } else {
-            // Completed via onfido — approved / rejected / reviewing
-            rb.innerHTML = `<div class="route-badge route-onfido"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="route-text"><strong>Verified via Onfido</strong><p>External identity verification completed.${reasonsHtml}</p></div></div>`;
-          }
+        } else if (isOnfido) {
+          rb.innerHTML = `<div class="route-badge route-onfido"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="route-text"><strong>Submitted for Verification</strong><p>Your submission has been forwarded to Admin for verification. You will be notified of the outcome.</p></div></div>`;
         } else {
-          rb.innerHTML = `<div class="route-badge route-internal"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div class="route-text"><strong>Internally Approved</strong><p>Risk score &lt; 50. All checks passed including multi-frame video face match and liveness.</p></div></div>`;
+          rb.innerHTML = `<div class="route-badge route-internal"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div class="route-text"><strong>Submitted for Internal Verification</strong><p>Your documents have been received and passed automated screening. Our team will complete the review.</p></div></div>`;
         }
 
+        // Hide detailed score metrics and checks from user view
+        document.getElementById("metricsGrid").style.display = "none";
+        document.getElementById("checksList").style.display = "none";
         document.getElementById("pollingWrap").style.display = "none";
-        document.getElementById("restartBtn").style.display =
-          app.status === "pending_onfido" ? "none" : "";
-      }
-
-      /* ══ Onfido redirect flow ══ */
-      function injectOnfidoButton(app) {
-        const container = document.getElementById("routeBadge");
-        if (!container) return;
-        // Don't inject twice
-        if (document.getElementById("onfido-action-area")) return;
-
-        const reasons = (app.onfido_data || {}).escalation_reasons || [];
-
-        const div = document.createElement("div");
-        div.id = "onfido-action-area";
-        div.style.cssText = "margin-top:18px;";
-        div.innerHTML = `
-          <button class="btn-onfido-verify" id="btnOpenOnfido" onclick="openOnfidoVerification()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
-              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-            Complete Verification with Onfido
-          </button>
-          <p style="margin-top:8px;font-size:0.78rem;color:#6b7280;max-width:420px;line-height:1.5;">
-            You'll be redirected to Onfido's secure platform. Complete the check and you'll return here automatically.
-          </p>`;
-        container.after(div);
-      }
-
-      async function openOnfidoVerification() {
-        const btn = document.getElementById("btnOpenOnfido");
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = "Opening Onfido…";
-        }
-        try {
-          const res = await fetch(
-            `/api/applications/${currentAppId}/onfido-link`,
-          );
-          const data = await res.json();
-          if (!data.success)
-            throw new Error(data.error || "Could not get Onfido link");
-          // Safely extract URL — backend now returns plain string, but handle object fallback
-          const onfidoUrl =
-            typeof data.link === "object" && data.link !== null
-              ? data.link.url || null
-              : data.link || null;
-          if (!onfidoUrl)
-            throw new Error("Onfido did not return a verification URL");
-          // Save app_id — we read this back when user returns after completing Onfido
-          sessionStorage.setItem("onfido_pending_app_id", currentAppId);
-          // Redirect to Onfido hosted Studio
-          window.location.href = onfidoUrl;
-        } catch (err) {
-          showError("Could not open Onfido: " + err.message);
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = "Complete Verification with Onfido";
-          }
-        }
+        document.getElementById("restartBtn").style.display = "";
       }
 
       /* ══ Helpers ══ */
@@ -2773,14 +2421,57 @@
         setLoading(false);
       }
 
+      // ── Auth: load user info + signout ─────────────────────────────────────
+      (function () {
+        fetch("/api/auth/me")
+          .then((r) => r.json())
+          .then((d) => {
+            if (!d.authenticated) {
+              window.location.replace("/login.html");
+              return;
+            }
+            const u = d.user;
+            const avatarEl = document.getElementById("sidebar-avatar");
+            const nameEl = document.getElementById("sidebar-username");
+            const infoEl = document.getElementById("sidebar-user-info");
+            if (nameEl) nameEl.textContent = u.name || u.email || "User";
+            if (avatarEl) {
+              if (u.avatar) {
+                avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;" />`;
+              } else {
+                avatarEl.textContent = (u.name ||
+                  u.email ||
+                  "U")[0].toUpperCase();
+              }
+            }
+            if (infoEl) infoEl.style.display = "flex";
+          })
+          .catch(() => window.location.replace("/login.html"));
+      })();
+
+      async function handleSignout() {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/login.html";
+      }
+
       function setLoading(on) {
         const btn = document.getElementById("submitBtn");
         btn.classList.toggle("loading", on);
         btn.disabled = on;
       }
-      function showError(msg) {
+      function showError(msg, detail) {
         const el = document.getElementById("errorBanner");
-        el.textContent = msg;
+        el.innerHTML = "";
+        const main = document.createElement("span");
+        main.textContent = msg;
+        el.appendChild(main);
+        if (detail) {
+          const sub = document.createElement("small");
+          sub.style.cssText =
+            "display:block;margin-top:4px;opacity:0.75;font-size:0.8em;";
+          sub.textContent = detail;
+          el.appendChild(sub);
+        }
         el.classList.add("show");
         el.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
