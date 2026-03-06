@@ -8,6 +8,28 @@
       href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap"
       rel="stylesheet"
     />
+    <!-- Auth guard -->
+    <!-- Auth guard: admin only -->
+    <script>
+      (function () {
+        fetch("/api/auth/me")
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            if (!d.authenticated) {
+              window.location.replace("/login.html?admin=1");
+            } else if (d.user.role !== "admin") {
+              window.location.replace("/login.html?error=not_admin");
+            } else {
+              window.__kyc_user = d.user;
+            }
+          })
+          .catch(function () {
+            window.location.replace("/login.html?admin=1");
+          });
+      })();
+    </script>
     <style>
       *,
       *::before,
@@ -286,6 +308,10 @@
       .b-pending_onfido {
         background: #dbeafe;
         color: #1e3a8a;
+      }
+      .b-pending_review {
+        background: #fff7ed;
+        color: #9a3412;
       }
       .b-processing {
         background: #fef9c3;
@@ -879,6 +905,27 @@
       .btn-rej:hover {
         background: #fecaca;
       }
+      .btn-onfido-link {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 11px 14px;
+        background: #1e3a8a;
+        border: none;
+        border-radius: 9px;
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.82rem;
+        color: #fff;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s;
+      }
+      .btn-onfido-link:hover {
+        background: #1e40af;
+      }
 
       @media (max-width: 900px) {
         .stats {
@@ -921,6 +968,44 @@
       </div>
       <div style="display: flex; align-items: center; gap: 10px">
         <span class="bar-tag">Admin</span>
+        <!-- User info -->
+        <div
+          id="admin-user-info"
+          style="
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.07);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          "
+        >
+          <div
+            id="admin-avatar"
+            style="
+              width: 26px;
+              height: 26px;
+              border-radius: 50%;
+              background: rgba(37, 99, 235, 0.5);
+              display: grid;
+              place-items: center;
+              font-size: 0.7rem;
+              font-weight: 700;
+              color: #93c5fd;
+              overflow: hidden;
+              flex-shrink: 0;
+            "
+          ></div>
+          <span
+            id="admin-user-name"
+            style="
+              font-size: 0.78rem;
+              color: rgba(255, 255, 255, 0.8);
+              font-weight: 500;
+            "
+          ></span>
+        </div>
         <button class="btn-sm" onclick="loadAll()">
           <svg
             width="12"
@@ -936,6 +1021,29 @@
             />
           </svg>
           Refresh
+        </button>
+        <button
+          class="btn-sm"
+          onclick="handleLogout()"
+          style="
+            background: rgba(220, 38, 38, 0.15);
+            border-color: rgba(220, 38, 38, 0.3);
+            color: #fca5a5;
+          "
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+          >
+            <path
+              d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+            />
+          </svg>
+          Sign Out
         </button>
       </div>
     </header>
@@ -973,6 +1081,9 @@
       <button class="fb on" onclick="setFilter(this, 'all')">All</button>
       <button class="fb" onclick="setFilter(this, 'processing')">
         Processing
+      </button>
+      <button class="fb" onclick="setFilter(this, 'pending_review')">
+        Internal Review
       </button>
       <button class="fb" onclick="setFilter(this, 'approved')">Approved</button>
       <button class="fb" onclick="setFilter(this, 'rejected')">Rejected</button>
@@ -1077,6 +1188,7 @@
           setText("s-tot", s.total ?? "—");
           setText("s-app", s.approved ?? "—");
           setText("s-rej", s.rejected ?? "—");
+          setText("s-rev", s.pending_review ?? "—");
           setText("s-onf", s.pending_onfido ?? "—");
           setText("s-pro", s.processing ?? "—");
           setText("s-rate", (s.approval_rate ?? "—") + "%");
@@ -1164,6 +1276,7 @@
         const lbl = {
           approved: "✓ Approved",
           rejected: "✗ Rejected",
+          pending_review: "⏸ Internal Review",
           pending_onfido: "⟳ Onfido",
           processing: "⏳ Processing",
           reviewing: "◎ Review",
@@ -1230,80 +1343,19 @@
                 ? "#d97706"
                 : "#dc2626";
 
-        /* ── Onfido result card ── */
-        let onfHtml = "";
-        if (v.method === "onfido" || onf.workflow_run_id) {
-          const os = onf.status || "processing";
-          const osCls =
-            {
-              approved: "os-approved",
-              declined: "os-declined",
-              review: "os-review",
-              processing: "os-processing",
-            }[os] || "os-processing";
-          const reasons = onf.escalation_reasons || [];
-          const output = onf.output;
-          const isDone =
-            ["approved", "declined", "review"].includes(os) && onf.completed_at;
-
-          // Final verdict block
-          let verdictHtml = "";
-          if (os === "approved") {
-            verdictHtml = `<div class="verdict vp"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M20 6L9 17l-5-5"/></svg></div><div class="verdict-text"><strong>Onfido Approved</strong><p>Identity successfully verified by Onfido.</p></div></div>`;
-          } else if (os === "declined") {
-            verdictHtml = `<div class="verdict vr"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M18 6L6 18M6 6l12 12"/></svg></div><div class="verdict-text"><strong>Onfido Declined</strong><p>Verification declined by Onfido. ${app.rejection_reason || ""}</p></div></div>`;
-          } else if (os === "review") {
-            verdictHtml = `<div class="verdict vw"><div class="verdict-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.8"><path d="M12 9v4M12 17h.01"/></svg></div><div class="verdict-text"><strong>Manual Review Required</strong><p>Onfido flagged this for human review.</p></div></div>`;
-          }
-
-          const outputHtml =
-            output && Object.keys(output).length
-              ? `<div class="onf-out">${JSON.stringify(output, null, 2)}</div>`
-              : "";
-
-          onfHtml = `
-    <div class="sl">Onfido External Verification</div>
-    <div class="onf-card">
-      <div class="onf-head">
-        <div class="onf-head-left">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span>Onfido Verification Result</span>
-        </div>
-        <div class="onf-head-right">
-          <span class="os-badge ${osCls}">${os}</span>
-          <button class="btn-poll" id="pollBtn" onclick="doPoll('${app.application_id}')">
-            <div class="spin"></div>
-            <span class="pl">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-1px;margin-right:3px"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>Refresh
-            </span>
-          </button>
-        </div>
-      </div>
-      <div class="onf-body">
-        ${verdictHtml}
-        <div class="onf-meta">
-          <div class="om-item"><div class="ol">Applicant ID</div><div class="ov">${onf.applicant_id || "—"}</div></div>
-          <div class="om-item"><div class="ol">Workflow Run ID</div><div class="ov">${onf.workflow_run_id || "—"}</div></div>
-          <div class="om-item"><div class="ol">Submitted</div><div class="ov">${onf.submitted_at ? new Date(onf.submitted_at).toLocaleString() : "—"}</div></div>
-          <div class="om-item"><div class="ol">Completed</div><div class="ov">${onf.completed_at ? new Date(onf.completed_at).toLocaleString() : "—"}</div></div>
-          ${onf.last_polled ? `<div class="om-item"><div class="ol">Last Checked</div><div class="ov">${new Date(onf.last_polled).toLocaleString()}</div></div>` : ""}
-        </div>
-        ${reasons.length ? `<div class="esc-wrap"><div class="esc-label">Escalation Reasons</div>${reasons.map((r) => `<span class="chip">${r}</span>`).join("")}</div>` : ""}
-        ${outputHtml}
-        <div class="poll-msg" id="pollMsg"></div>
-      </div>
-    </div>`;
-        }
-
         /* ── Scores ── */
         const faceScore = face.score ?? null;
         const liveScore = live.score ?? null;
+        const framesChecked = face.frames_checked ?? 0;
+        const framesMatched = face.frames_matched ?? 0;
         const faceColor =
           faceScore === null
             ? "var(--soft)"
-            : faceScore >= 50
+            : faceScore >= 80
               ? "var(--green)"
-              : "var(--red)";
+              : faceScore >= 50
+                ? "var(--amber)"
+                : "var(--red)";
         const liveColor =
           liveScore === null
             ? "var(--soft)"
@@ -1323,17 +1375,23 @@
     <div class="sc-card">
       <div class="l">Face Match</div>
       <div class="v" style="color:${faceColor}">${faceScore !== null ? Math.round(faceScore) + "%" : "—"}</div>
-      <div class="s">${face.match ? "✓ Confirmed" : faceScore !== null ? "✗ No match" : "N/A"}</div>
+      <div class="s">${
+        face.match
+          ? "✓ Confirmed"
+          : faceScore !== null
+            ? (faceScore >= 80 ? "✓ Match" : "✗ No match") +
+              ` (${framesMatched}/${framesChecked} frames)`
+            : framesChecked > 0
+              ? "✗ Face not detected"
+              : "N/A"
+      }</div>
     </div>
     <div class="sc-card">
       <div class="l">Liveness</div>
       <div class="v" style="color:${liveColor}">${liveScore !== null ? Math.round(liveScore) + "%" : "—"}</div>
       <div class="s">${live.is_live ? "✓ Live detected" : liveScore !== null ? "✗ Failed" : "N/A"}</div>
     </div>
-    <div class="sc-card">
-      <div class="l">Document Expiry</div>
-      <div class="v" style="font-size:.95rem;color:${exp.is_valid ? "var(--green)" : exp.is_expired ? "var(--red)" : "var(--soft)"}">${exp.expiry_date || "—"}</div>
-      <div class="s">${exp.is_expired ? "✗ Expired" : exp.is_expiring_soon ? "⚠ Soon" : exp.is_valid ? "✓ Valid" : exp.error || "N/A"}</div>
+    
     </div>
   </div>`;
 
@@ -1350,27 +1408,26 @@
               fake.reasons?.[0] ||
               (fake.is_fake ? "" : "No tampering detected"),
           },
-          {
-            name: "Expiry Check",
-            dot: exp.is_valid ? "dg" : exp.is_expired ? "dr" : "da",
-            val: exp.is_valid
-              ? "Valid"
-              : exp.is_expired
-                ? "Expired"
-                : "Unverified",
-            note: exp.expiry_date
-              ? `Expires ${exp.expiry_date}`
-              : exp.error || "",
-          },
+
           {
             name: "Face Match",
-            dot: face.match ? "dg" : faceScore !== null ? "dr" : "dx",
+            dot: face.match
+              ? "dg"
+              : faceScore !== null
+                ? faceScore >= 80
+                  ? "dg"
+                  : "dr"
+                : framesChecked > 0
+                  ? "dr"
+                  : "dx",
             val: faceScore !== null ? Math.round(faceScore) + "%" : "—",
             note: face.match
-              ? "Identity confirmed"
+              ? `Identity confirmed · ${framesMatched}/${framesChecked} frames`
               : faceScore !== null
-                ? "Faces do not match"
-                : "Not checked",
+                ? `Score ${Math.round(faceScore)}% · ${framesMatched}/${framesChecked} frames matched`
+                : framesChecked > 0
+                  ? "Face could not be detected in frames"
+                  : "Not checked",
           },
           {
             name: "Liveness Detection",
@@ -1400,7 +1457,7 @@
               v.method === "onfido"
                 ? onf_reasons
                 : v.method === "internal"
-                  ? "All checks passed internally"
+                  ? `risk_score=${v.risk_score ?? "—"} (≤50) — awaiting admin decision`
                   : "",
           },
         ];
@@ -1445,10 +1502,13 @@
 
         /* ── File thumbs ── */
         const fileMap = app.files || {};
+        // Show all uploaded files regardless of verification method
         const fileFields = [
           { k: "document_front", l: "Doc Front" },
           { k: "document_back", l: "Doc Back" },
-          { k: "selfie_photo", l: "Selfie" },
+          { k: "selfie_best_frame", l: "Selfie (Best Frame)" },
+          { k: "selfie_photo", l: "Selfie Photo" },
+          { k: "selfie_video", l: "Selfie Video" },
         ];
         const fileItems = fileFields.filter((f) => fileMap[f.k]);
         const filesHtml = fileItems.length
@@ -1456,16 +1516,25 @@
   <div class="sl">Uploaded Documents</div>
   <div class="thumbs">
     ${fileItems
-      .map(
-        (f) => `
-      <div class="thumb" onclick="window.open('/api/files/${fileMap[f.k]}','_blank')">
-        <img src="/api/files/${fileMap[f.k]}" alt="${f.l}" onerror="this.style.display='none'"/>
+      .map((f) => {
+        const isVideo = f.k === "selfie_video";
+        return `
+      <div class="thumb" onclick="window.open('/api/files/${fileMap[f.k]}','_blank')" title="Click to open full size">
+        ${
+          isVideo
+            ? `<div style="display:flex;align-items:center;justify-content:center;height:100%;background:#f0f4ff;border-radius:6px;flex-direction:column;gap:6px;">
+               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+               <span style="font-size:.72rem;color:#2563eb;font-weight:600">Play Video</span>
+             </div>`
+            : `<img src="/api/files/${fileMap[f.k]}" alt="${f.l}" onerror="this.parentElement.style.opacity='.4'"
+               style="width:100%;height:100%;object-fit:cover;border-radius:6px;"/>`
+        }
         <div class="tl">${f.l}</div>
-      </div>`,
-      )
+      </div>`;
+      })
       .join("")}
   </div>`
-          : "";
+          : `<div class="sl">Uploaded Documents</div><p style="color:var(--soft);font-size:.85rem;padding:.5rem 0">No documents on file.</p>`;
 
         /* ── App meta ── */
         const metaHtml = `
@@ -1480,28 +1549,24 @@
     </div>
   </div>`;
 
-        /* ── Review actions ── */
-        const canReview = [
-          "reviewing",
-          "pending_onfido",
-          "processing",
-        ].includes(app.status);
-        const revHtml = canReview
-          ? `
+        /* ── Review actions — always 3 buttons ── */
+        const onfidoDashUrl = onf.workflow_run_id
+          ? `https://dashboard.onfido.com/results/${onf.workflow_run_id}`
+          : "https://dashboard.onfido.com/";
+
+        const revHtml = `
   <div class="rev-actions">
     <button class="btn-apv" onclick="mAction('${app.application_id}','approve')">✓ Approve</button>
     <button class="btn-rej" onclick="mAction('${app.application_id}','reject')">✗ Reject</button>
-  </div>`
-          : "";
+    <a class="btn-onfido-link" href="${onfidoDashUrl}" target="_blank" rel="noopener">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Open in Onfido
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3"/></svg>
+    </a>
+  </div>`;
 
         document.getElementById("mb").innerHTML =
-          onfHtml +
-          scoresHtml +
-          chksHtml +
-          ocrHtml +
-          filesHtml +
-          metaHtml +
-          revHtml;
+          scoresHtml + chksHtml + ocrHtml + filesHtml + metaHtml + revHtml;
       }
 
       function closeModal() {
@@ -1616,6 +1681,39 @@
           month: "short",
           year: "numeric",
         });
+      }
+
+      // ── Auth: populate user info in top bar ────────────────────────────────
+      document.addEventListener("DOMContentLoaded", function () {
+        fetch("/api/auth/me")
+          .then((r) => r.json())
+          .then((d) => {
+            if (!d.authenticated) {
+              window.location.replace("/login.html");
+              return;
+            }
+            const u = d.user;
+            const info = document.getElementById("admin-user-info");
+            const nameEl = document.getElementById("admin-user-name");
+            const avatarEl = document.getElementById("admin-avatar");
+            if (nameEl) nameEl.textContent = u.name || u.email || "Admin";
+            if (avatarEl) {
+              if (u.avatar) {
+                avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;" />`;
+              } else {
+                avatarEl.textContent = (u.name || "A")[0].toUpperCase();
+              }
+            }
+            if (info) info.style.display = "flex";
+          })
+          .catch(() => {
+            window.location.replace("/login.html");
+          });
+      });
+
+      async function handleLogout() {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/login.html";
       }
     </script>
   </body>

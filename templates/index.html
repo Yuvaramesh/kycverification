@@ -40,14 +40,13 @@
         color: var(--ink);
       }
 
-      /* ── Layout ─────────────────────────────────────────────────────────── */
       .shell {
         display: grid;
         grid-template-columns: 340px 1fr;
         min-height: 100vh;
       }
 
-      /* ── Sidebar ─────────────────────────────────────────────────────────── */
+      /* ── Sidebar ── */
       .sidebar {
         background: var(--accent);
         color: #fff;
@@ -145,8 +144,63 @@
         line-height: 1.6;
         margin-top: 40px;
       }
+      .sidebar-user {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        margin-bottom: 12px;
+      }
+      .sidebar-avatar {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        display: grid;
+        place-items: center;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .sidebar-username {
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: rgba(255, 255, 255, 0.85);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        min-width: 0;
+      }
+      .btn-signout {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 9px 14px;
+        background: rgba(220, 38, 38, 0.15);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        border-radius: 9px;
+        color: #fca5a5;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 14px;
+      }
+      .btn-signout:hover {
+        background: rgba(220, 38, 38, 0.28);
+        border-color: rgba(220, 38, 38, 0.5);
+        color: #fff;
+      }
 
-      /* ── Main ────────────────────────────────────────────────────────────── */
+      /* ── Main ── */
       .main {
         display: flex;
         flex-direction: column;
@@ -171,7 +225,7 @@
         }
       }
 
-      /* ── Step header ─────────────────────────────────────────────────────── */
+      /* ── Step header ── */
       .step-header {
         margin-bottom: 40px;
       }
@@ -202,8 +256,6 @@
         color: var(--ink-soft);
         line-height: 1.6;
       }
-
-      /* ── Section label ───────────────────────────────────────────────────── */
       .section-label {
         font-family: "Syne", sans-serif;
         font-weight: 700;
@@ -214,12 +266,12 @@
         margin-bottom: 14px;
       }
 
-      /* ── Document type ───────────────────────────────────────────────────── */
+      /* ── Doc type buttons ── */
       .doc-type-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 12px;
-        margin-bottom: 36px;
+        margin-bottom: 32px;
       }
       .doc-type-btn {
         border: 2px solid var(--line);
@@ -250,7 +302,7 @@
         letter-spacing: 0.02em;
       }
 
-      /* ── Upload zones ────────────────────────────────────────────────────── */
+      /* ── Upload zones ── */
       .uploads-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -332,15 +384,18 @@
         text-overflow: ellipsis;
       }
 
-      /* ── Selfie card ─────────────────────────────────────────────────────── */
-      .selfie-card {
+      /* ══════════════════════════════════════════════
+         VIDEO LIVENESS RECORDER
+      ══════════════════════════════════════════════ */
+      .video-card {
         border: 1px solid var(--line);
         border-radius: 16px;
         background: var(--white);
         overflow: hidden;
         margin-bottom: 24px;
       }
-      .selfie-card-header {
+
+      .video-card-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -348,12 +403,27 @@
         border-bottom: 1px solid var(--line);
         background: var(--surface);
       }
-      .selfie-card-header .upload-label {
-        font-size: 0.85rem;
+      .video-card-header .vch-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 700;
+        font-size: 0.88rem;
+      }
+      .vch-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 10px;
+        background: #dbeafe;
+        color: #1e40af;
+        border-radius: 6px;
+        font-size: 0.67rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
       }
 
-      /* Toggle buttons */
-      .selfie-toggle {
+      /* Toggle */
+      .video-toggle {
         display: flex;
         background: var(--line);
         border-radius: 8px;
@@ -386,7 +456,7 @@
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       }
 
-      /* ── Camera panel ────────────────────────────────────────────────────── */
+      /* Camera viewport */
       .camera-wrap {
         position: relative;
         width: 100%;
@@ -398,11 +468,11 @@
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transform: scaleX(-1); /* mirror */
-        display: block;
+        transform: scaleX(-1);
+        display: none;
       }
 
-      /* Face guide overlay */
+      /* Face oval overlay */
       .face-guide {
         position: absolute;
         inset: 0;
@@ -418,20 +488,85 @@
         border: 3px solid rgba(255, 255, 255, 0.6);
         border-radius: 50%;
         box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.38);
+        transition: border-color 0.3s;
+      }
+      .face-oval.recording {
+        border-color: #ef4444;
+        box-shadow:
+          0 0 0 9999px rgba(0, 0, 0, 0.38),
+          0 0 0 4px rgba(239, 68, 68, 0.4);
       }
       .guide-text {
         position: absolute;
         bottom: 28px;
         font-size: 0.78rem;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.8);
-        background: rgba(0, 0, 0, 0.45);
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(0, 0, 0, 0.5);
         padding: 5px 14px;
         border-radius: 20px;
         letter-spacing: 0.02em;
       }
 
-      /* Idle state (before camera opens) */
+      /* Recording indicator */
+      .rec-indicator {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: rgba(0, 0, 0, 0.55);
+        backdrop-filter: blur(6px);
+        border-radius: 20px;
+        padding: 6px 13px;
+      }
+      .rec-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #ef4444;
+        animation: recPulse 1s ease infinite;
+      }
+      @keyframes recPulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      .rec-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: 0.08em;
+      }
+
+      /* Progress ring */
+      .progress-ring-wrap {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+      }
+      .progress-ring {
+        transform: rotate(-90deg);
+      }
+      .progress-ring-bg {
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.2);
+        stroke-width: 3;
+      }
+      .progress-ring-fill {
+        fill: none;
+        stroke: #4ade80;
+        stroke-width: 3;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 0.2s linear;
+      }
+
+      /* Idle state */
       .camera-idle {
         position: absolute;
         inset: 0;
@@ -455,9 +590,10 @@
         font-size: 0.82rem;
         color: rgba(255, 255, 255, 0.45);
         text-align: center;
-        max-width: 220px;
+        max-width: 240px;
         line-height: 1.5;
       }
+
       .start-camera-btn {
         display: flex;
         align-items: center;
@@ -478,18 +614,17 @@
         transform: translateY(-1px);
       }
 
-      /* Captured preview overlay */
-      .capture-preview {
+      /* Video preview (after recording) */
+      .video-preview {
         position: absolute;
         inset: 0;
       }
-      .capture-preview img {
+      .video-preview video {
         width: 100%;
         height: 100%;
         object-fit: cover;
-        transform: scaleX(-1);
       }
-      .capture-overlay {
+      .video-overlay {
         position: absolute;
         inset: 0;
         display: flex;
@@ -498,15 +633,18 @@
         padding: 20px;
         background: linear-gradient(
           to top,
-          rgba(0, 0, 0, 0.55) 0%,
+          rgba(0, 0, 0, 0.6) 0%,
           transparent 60%
         );
       }
-      .capture-ok {
+      .video-ok {
         font-family: "Syne", sans-serif;
         font-weight: 700;
         font-size: 0.9rem;
         color: #4ade80;
+        display: flex;
+        align-items: center;
+        gap: 7px;
       }
       .retake-btn {
         display: flex;
@@ -528,50 +666,6 @@
         background: rgba(255, 255, 255, 0.25);
       }
 
-      /* Shutter / capture actions */
-      .capture-actions {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 10px;
-        padding: 20px;
-        background: var(--surface);
-        border-top: 1px solid var(--line);
-      }
-      .shutter-btn {
-        width: 62px;
-        height: 62px;
-        border-radius: 50%;
-        border: 4px solid var(--accent);
-        background: var(--white);
-        cursor: pointer;
-        display: grid;
-        place-items: center;
-        transition: all 0.15s;
-        position: relative;
-      }
-      .shutter-btn:hover {
-        transform: scale(1.06);
-      }
-      .shutter-btn:active {
-        transform: scale(0.95);
-      }
-      .shutter-inner {
-        width: 46px;
-        height: 46px;
-        border-radius: 50%;
-        background: var(--accent);
-        transition: all 0.15s;
-      }
-      .shutter-btn:hover .shutter-inner {
-        background: #2d3650;
-      }
-      .capture-hint {
-        font-size: 0.72rem;
-        color: var(--ink-soft);
-        letter-spacing: 0.04em;
-      }
-
       /* Camera error */
       .camera-error {
         position: absolute;
@@ -591,12 +685,87 @@
         color: #ef4444;
       }
 
-      /* Upload selfie panel */
-      #selfie-upload-panel {
+      /* Record actions bar */
+      .record-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 20px;
+        background: var(--surface);
+        border-top: 1px solid var(--line);
+      }
+
+      /* Record button */
+      .record-btn {
+        width: 68px;
+        height: 68px;
+        border-radius: 50%;
+        border: 4px solid var(--accent);
+        background: var(--white);
+        cursor: pointer;
+        display: grid;
+        place-items: center;
+        transition: all 0.15s;
+      }
+      .record-btn:hover {
+        transform: scale(1.06);
+        border-color: #2d3650;
+      }
+      .record-btn:active {
+        transform: scale(0.95);
+      }
+      .record-inner {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: var(--accent);
+        transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      .record-btn.recording .record-inner {
+        border-radius: 8px;
+        width: 24px;
+        height: 24px;
+        background: #ef4444;
+      }
+      .record-btn.recording {
+        border-color: #ef4444;
+      }
+
+      .record-hint {
+        font-size: 0.72rem;
+        color: var(--ink-soft);
+        letter-spacing: 0.04em;
+        text-align: center;
+      }
+
+      /* Tips strip */
+      .tips-strip {
+        display: flex;
+        gap: 16px;
+        padding: 14px 20px;
+        border-top: 1px solid var(--line);
+        background: #fffbeb;
+      }
+      .tip {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.72rem;
+        color: #92400e;
+        font-weight: 500;
+      }
+      .tip svg {
+        flex-shrink: 0;
+        color: #d97706;
+      }
+
+      /* Upload video panel */
+      #video-upload-panel {
         padding: 16px;
       }
 
-      /* ── Info banner ─────────────────────────────────────────────────────── */
+      /* ── Info banner ── */
       .info-banner {
         display: flex;
         gap: 12px;
@@ -617,7 +786,7 @@
         line-height: 1.5;
       }
 
-      /* ── Submit button ───────────────────────────────────────────────────── */
+      /* ── Submit button ── */
       .btn-submit {
         width: 100%;
         padding: 16px;
@@ -666,7 +835,6 @@
         }
       }
 
-      /* ── Error banner ────────────────────────────────────────────────────── */
       .error-banner {
         background: #fff1f2;
         border: 1px solid #fecdd3;
@@ -681,7 +849,7 @@
         display: block;
       }
 
-      /* ── Result card (step 2) ────────────────────────────────────────────── */
+      /* ── Result (step 2) ── */
       .result-card {
         background: var(--white);
         border: 1px solid var(--line);
@@ -754,7 +922,6 @@
         background: var(--line);
       }
 
-      /* Metrics */
       .metrics-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -807,7 +974,6 @@
         background: var(--red);
       }
 
-      /* Checks */
       .checks-list {
         padding: 24px 28px;
       }
@@ -862,7 +1028,6 @@
         font-size: 0.82rem;
       }
 
-      /* Route badge */
       .route-badge {
         margin: 20px 28px;
         padding: 16px 20px;
@@ -913,7 +1078,6 @@
         line-height: 1.4;
       }
 
-      /* Restart */
       .btn-restart {
         display: flex;
         align-items: center;
@@ -937,7 +1101,6 @@
         color: var(--ink);
       }
 
-      /* Polling */
       .polling-wrap {
         display: flex;
         align-items: center;
@@ -968,7 +1131,6 @@
         color: var(--ink-soft);
       }
 
-      /* ── Responsive ──────────────────────────────────────────────────────── */
       @media (max-width: 900px) {
         .shell {
           grid-template-columns: 1fr;
@@ -991,21 +1153,16 @@
         .metrics-grid {
           grid-template-columns: 1fr;
         }
-        .selfie-card-header {
+        .tips-strip {
           flex-direction: column;
-          align-items: flex-start;
-          gap: 12px;
-        }
-        .toggle-btn {
-          padding: 6px 10px;
-          font-size: 0.74rem;
+          gap: 8px;
         }
       }
     </style>
   </head>
   <body>
     <div class="shell">
-      <!-- ── Sidebar ────────────────────────────────────────────────────────── -->
+      <!-- ── Sidebar ── -->
       <aside class="sidebar">
         <div class="sidebar-logo">
           <div class="mark">
@@ -1022,35 +1179,56 @@
           </div>
           <span>VerifyKYC</span>
         </div>
-
         <nav class="step-nav">
           <div class="step-item active" id="nav-step-1">
             <div class="step-num">1</div>
             <div class="step-label">
               <strong>Documents</strong>
-              <p>Upload your ID document and a selfie photo</p>
+              <p>Upload your ID and record a 5-second liveness video</p>
             </div>
           </div>
           <div class="step-item" id="nav-step-2">
             <div class="step-num">2</div>
             <div class="step-label">
               <strong>Verification</strong>
-              <p>Our system analyses your documents instantly</p>
+              <p>Our system analyses your documents and video instantly</p>
             </div>
           </div>
         </nav>
-
         <div class="sidebar-footer">
+          <!-- User info -->
+          <div
+            class="sidebar-user"
+            id="sidebar-user-info"
+            style="display: none"
+          >
+            <div class="sidebar-avatar" id="sidebar-avatar"></div>
+            <span class="sidebar-username" id="sidebar-username"></span>
+          </div>
+          <!-- Sign Out -->
+          <button class="btn-signout" onclick="handleSignout()">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+            >
+              <path
+                d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"
+              />
+            </svg>
+            Sign Out
+          </button>
           Your data is encrypted end-to-end and processed<br />
           securely in compliance with GDPR &amp; KYC regulations.
         </div>
       </aside>
 
-      <!-- ── Main ──────────────────────────────────────────────────────────── -->
+      <!-- ── Main ── -->
       <main class="main">
-        <!-- ════════════════════════════════════════════════════════════════════
-         STEP 1 — Document + Selfie Upload
-         ════════════════════════════════════════════════════════════════════ -->
+        <!-- STEP 1 -->
         <div class="step-panel active" id="step-1">
           <div class="step-header">
             <div class="step-tag">
@@ -1069,41 +1247,13 @@
             </div>
             <h1 class="step-title">Upload your<br />documents</h1>
             <p class="step-subtitle">
-              Select a document type, upload photos, and take or upload a
-              selfie. No personal data beyond what's in your document is
+              Select your document type, upload photos, then record a short
+              liveness video — no personal data beyond your document is
               collected.
             </p>
           </div>
 
-          <!-- Country Selection -->
-          <div class="section-label" style="margin-bottom: 14px">Country</div>
-          <div style="margin-bottom: 32px">
-            <select
-              id="countrySelect"
-              onchange="onCountryChange()"
-              style="
-                width: 100%;
-                padding: 12px 16px;
-                border: 2px solid var(--line);
-                border-radius: var(--radius);
-                background: var(--white);
-                font-family: &quot;DM Sans&quot;, sans-serif;
-                font-size: 0.95rem;
-                color: var(--ink);
-                cursor: pointer;
-                transition: all 0.2s;
-              "
-            >
-              <option value="">Select your country...</option>
-            </select>
-            <div
-              id="countryError"
-              class="error-banner"
-              style="margin-top: 10px; margin-bottom: 0"
-            ></div>
-          </div>
-
-          <!-- Document type -->
+          <!-- Doc type -->
           <div class="section-label" style="margin-bottom: 14px">
             Document Type
           </div>
@@ -1113,31 +1263,49 @@
               data-type="passport"
               onclick="selectDocType(this)"
             >
-              <span class="doc-icon">🛂</span>
-              <span class="doc-name">Passport</span>
-            </button>
-            <button
-              class="doc-type-btn"
-              data-type="drivers_license"
-              onclick="selectDocType(this)"
-            >
-              <span class="doc-icon">🪪</span>
-              <span class="doc-name">Driver's License</span>
+              <span class="doc-icon">🛂</span
+              ><span class="doc-name">Passport</span>
             </button>
             <button
               class="doc-type-btn"
               data-type="national_id"
               onclick="selectDocType(this)"
             >
-              <span class="doc-icon">🪪</span>
-              <span class="doc-name">National ID</span>
+              <span class="doc-icon">🪪</span
+              ><span class="doc-name">National ID</span>
+            </button>
+            <button
+              class="doc-type-btn"
+              data-type="drivers_license"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">🚗</span
+              ><span class="doc-name">Driver's License</span>
+            </button>
+            <button
+              class="doc-type-btn"
+              data-type="utility_bill"
+              onclick="selectDocType(this)"
+            >
+              <span class="doc-icon">📄</span
+              ><span class="doc-name"
+                >Utility Bill
+                <small
+                  style="
+                    display: block;
+                    font-size: 0.68rem;
+                    color: var(--ink-soft);
+                    font-weight: 400;
+                  "
+                  >Past 3 months</small
+                ></span
+              >
             </button>
           </div>
 
-          <!-- Document uploads -->
+          <!-- Doc uploads -->
           <div class="section-label">Document Photos</div>
           <div class="uploads-grid" style="margin-bottom: 28px">
-            <!-- Front -->
             <div
               class="upload-zone"
               id="zone-front"
@@ -1168,8 +1336,6 @@
               <div class="upload-hint">Clear photo of the front</div>
               <div class="upload-filename" id="fname-document_front"></div>
             </div>
-
-            <!-- Back -->
             <div
               class="upload-zone"
               id="zone-back"
@@ -1207,77 +1373,165 @@
             </div>
           </div>
 
-          <!-- ── Selfie card ────────────────────────────────────────────────── -->
-          <div class="section-label">Selfie Photo</div>
+          <!-- ══ VIDEO LIVENESS RECORDER ══ -->
+          <div class="section-label">
+            Liveness Video
+            <span
+              style="
+                font-family: &quot;DM Sans&quot;;
+                font-weight: 400;
+                text-transform: none;
+                font-size: 0.75rem;
+                color: var(--ink-soft);
+              "
+            >
+              — 5 seconds, face in frame</span
+            >
+          </div>
 
-          <div class="selfie-card">
-            <!-- Header with toggle -->
-            <div class="selfie-card-header">
-              <span style="font-size: 0.82rem; color: var(--ink-soft)"
-                >Take a live selfie or upload a photo</span
-              >
-              <div class="selfie-toggle">
-                <button
-                  class="toggle-btn active"
-                  id="btn-camera"
-                  onclick="switchSelfieMode('camera')"
+          <div class="video-card">
+            <div class="video-card-header">
+              <div>
+                <div class="vch-title">Liveness Verification</div>
+                <div
+                  style="
+                    font-size: 0.74rem;
+                    color: var(--ink-soft);
+                    margin-top: 3px;
+                  "
                 >
+                  Record a short video so we can confirm it's really you
+                </div>
+              </div>
+              <div style="display: flex; align-items: center; gap: 10px">
+                <span class="vch-badge">
                   <svg
-                    width="13"
-                    height="13"
+                    width="10"
+                    height="10"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    stroke-width="2.2"
+                    stroke-width="2.5"
                   >
-                    <path
-                      d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
-                    />
-                    <circle cx="12" cy="13" r="4" />
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4l3 3" />
                   </svg>
-                  Live Selfie
-                </button>
-                <button
-                  class="toggle-btn"
-                  id="btn-upload-selfie"
-                  onclick="switchSelfieMode('upload')"
-                >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.2"
+                  5 sec
+                </span>
+                <div class="video-toggle">
+                  <button
+                    class="toggle-btn active"
+                    id="btn-record"
+                    onclick="switchVideoMode('record')"
                   >
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </svg>
-                  Upload Photo
-                </button>
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="4"
+                        fill="currentColor"
+                        stroke="none"
+                      />
+                    </svg>
+                    Record
+                  </button>
+                  <button
+                    class="toggle-btn"
+                    id="btn-upload-video"
+                    onclick="switchVideoMode('upload')"
+                  >
+                    <svg
+                      width="13"
+                      height="13"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.2"
+                    >
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    Upload
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- Camera panel -->
-            <div id="selfie-camera-panel">
+            <!-- Record panel -->
+            <div id="video-record-panel">
               <div class="camera-wrap" id="cameraWrap">
                 <!-- Live video -->
-                <video
-                  id="cameraVideo"
-                  autoplay
-                  playsinline
-                  muted
-                  style="display: none"
-                ></video>
+                <video id="cameraVideo" autoplay playsinline muted></video>
 
-                <!-- Face guide (shown while streaming) -->
+                <!-- Face oval guide -->
                 <div class="face-guide" id="faceGuide" style="display: none">
-                  <div class="face-oval"></div>
-                  <div class="guide-text">Centre your face in the oval</div>
+                  <div class="face-oval" id="faceOval"></div>
+                  <div class="guide-text" id="guideText">
+                    Centre your face in the oval
+                  </div>
                 </div>
 
-                <!-- Idle (before camera opens) -->
+                <!-- Recording indicator -->
+                <div
+                  class="rec-indicator"
+                  id="recIndicator"
+                  style="display: none"
+                >
+                  <div class="rec-dot"></div>
+                  <span class="rec-label">REC</span>
+                </div>
+
+                <!-- Progress ring (countdown) -->
+                <div
+                  class="progress-ring-wrap"
+                  id="progressWrap"
+                  style="display: none"
+                >
+                  <svg
+                    class="progress-ring"
+                    width="48"
+                    height="48"
+                    viewBox="0 0 48 48"
+                  >
+                    <circle class="progress-ring-bg" cx="24" cy="24" r="20" />
+                    <circle
+                      class="progress-ring-fill"
+                      id="progressCircle"
+                      cx="24"
+                      cy="24"
+                      r="20"
+                      stroke-dasharray="125.66"
+                      stroke-dashoffset="125.66"
+                    />
+                  </svg>
+                  <div
+                    style="
+                      position: absolute;
+                      inset: 0;
+                      display: flex;
+                      align-items: center;
+                      justify-content: center;
+                      font-family: &quot;Syne&quot;, sans-serif;
+                      font-weight: 800;
+                      font-size: 1rem;
+                      color: #fff;
+                    "
+                    id="countdownNum"
+                  >
+                    5
+                  </div>
+                </div>
+
+                <!-- Idle -->
                 <div class="camera-idle" id="cameraIdle">
                   <div class="camera-idle-icon">
                     <svg
@@ -1289,12 +1543,11 @@
                       stroke-width="1.5"
                     >
                       <path
-                        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                        d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
                       />
-                      <circle cx="12" cy="13" r="4" />
                     </svg>
                   </div>
-                  <p>Camera access is needed to take your live selfie</p>
+                  <p>Allow camera access to record your liveness video</p>
                   <button class="start-camera-btn" onclick="startCamera()">
                     <svg
                       width="15"
@@ -1305,24 +1558,35 @@
                       stroke-width="2.5"
                     >
                       <path
-                        d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"
+                        d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
                       />
-                      <circle cx="12" cy="13" r="4" />
                     </svg>
                     Open Camera
                   </button>
                 </div>
 
-                <!-- Captured preview (replaces video after capture) -->
+                <!-- Video preview (after recording) -->
                 <div
-                  class="capture-preview"
-                  id="capturePreview"
+                  class="video-preview"
+                  id="videoPreview"
                   style="display: none"
                 >
-                  <img id="captureImg" src="" alt="Captured selfie" />
-                  <div class="capture-overlay">
-                    <div class="capture-ok">✓ Selfie captured</div>
-                    <button class="retake-btn" onclick="retakePhoto()">
+                  <video id="previewVideo" loop muted playsinline></video>
+                  <div class="video-overlay">
+                    <div class="video-ok">
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.8"
+                      >
+                        <path d="M20 6L9 17l-5-5" />
+                      </svg>
+                      Video recorded (5s)
+                    </div>
+                    <button class="retake-btn" onclick="retakeVideo()">
                       <svg
                         width="13"
                         height="13"
@@ -1336,12 +1600,12 @@
                           d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"
                         />
                       </svg>
-                      Retake
+                      Re-record
                     </button>
                   </div>
                 </div>
 
-                <!-- Camera error -->
+                <!-- Error -->
                 <div
                   class="camera-error"
                   id="cameraError"
@@ -1368,44 +1632,90 @@
                     Try Again
                   </button>
                 </div>
-
-                <!-- Hidden canvas for capture -->
-                <canvas id="cameraCanvas" style="display: none"></canvas>
               </div>
 
-              <!-- Shutter button row (shown while live) -->
+              <!-- Record button bar (visible when camera live) -->
               <div
-                class="capture-actions"
-                id="captureActions"
+                class="record-actions"
+                id="recordActions"
                 style="display: none"
               >
                 <button
-                  class="shutter-btn"
-                  onclick="capturePhoto()"
-                  title="Take photo"
+                  class="record-btn"
+                  id="recordBtn"
+                  onclick="toggleRecording()"
+                  title="Start / stop recording"
                 >
-                  <div class="shutter-inner"></div>
+                  <div class="record-inner"></div>
                 </button>
-                <div class="capture-hint">Click to take your selfie</div>
+                <div class="record-hint" id="recordHint">
+                  Press to start 5-second recording
+                </div>
+              </div>
+
+              <!-- Tips -->
+              <div class="tips-strip">
+                <div class="tip">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4M12 16h.01" />
+                  </svg>
+                  Good lighting on your face
+                </div>
+                <div class="tip">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4M12 16h.01" />
+                  </svg>
+                  Look directly at the camera
+                </div>
+                <div class="tip">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4M12 16h.01" />
+                  </svg>
+                  Blink naturally — helps liveness check
+                </div>
               </div>
             </div>
-            <!-- /selfie-camera-panel -->
+            <!-- /video-record-panel -->
 
             <!-- Upload panel -->
-            <div id="selfie-upload-panel" style="display: none; padding: 16px">
+            <div id="video-upload-panel" style="display: none; padding: 16px">
               <div
                 class="upload-zone"
-                id="zone-selfie"
+                id="zone-video"
                 ondragover="onDragOver(event)"
                 ondragleave="onDragLeave(event)"
-                ondrop="onDrop(event, 'selfie_photo')"
+                ondrop="onDrop(event, 'selfie_video')"
                 style="border-radius: 12px"
               >
                 <input
                   type="file"
-                  id="selfie_photo"
-                  accept="image/*"
-                  onchange="onFileSelect(this, 'selfie_photo')"
+                  id="selfie_video_input"
+                  accept="video/*"
+                  onchange="onVideoFileSelect(this)"
                 />
                 <div class="upload-icon">
                   <svg
@@ -1414,19 +1724,21 @@
                     stroke="currentColor"
                     stroke-width="1.8"
                   >
-                    <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
+                    <path
+                      d="M15 10l4.553-2.069A1 1 0 0121 8.82v6.36a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z"
+                    />
                   </svg>
                 </div>
-                <div class="upload-label">Upload Selfie</div>
+                <div class="upload-label">Upload Liveness Video</div>
                 <div class="upload-hint">
-                  Clear face photo in good lighting. JPG or PNG, max 16 MB.
+                  MP4, WebM or MOV. 3–15 seconds. Face clearly visible. Max 64
+                  MB.
                 </div>
-                <div class="upload-filename" id="fname-selfie_photo"></div>
+                <div class="upload-filename" id="fname-selfie_video"></div>
               </div>
             </div>
           </div>
-          <!-- /selfie-card -->
+          <!-- /video-card -->
 
           <div class="info-banner">
             <svg
@@ -1441,8 +1753,10 @@
               <path d="M12 16v-4M12 8h.01" />
             </svg>
             <p>
-              Files are encrypted and used only for identity verification. JPG,
-              PNG or PDF. Max 16 MB per file.
+              Your video is analysed server-side — 10 frames are extracted,
+              face-matched against your document across all frames, and
+              motion/blink signals are used to confirm liveness. No video is
+              stored permanently.
             </p>
           </div>
 
@@ -1469,14 +1783,11 @@
               Submit for Verification
             </span>
           </button>
-
           <div class="error-banner" id="errorBanner"></div>
         </div>
         <!-- /step-1 -->
 
-        <!-- ════════════════════════════════════════════════════════════════════
-         STEP 2 — Verification Result
-         ════════════════════════════════════════════════════════════════════ -->
+        <!-- STEP 2 -->
         <div class="step-panel" id="step-2">
           <div class="step-header">
             <div class="step-tag">
@@ -1540,12 +1851,12 @@
                 </div>
               </div>
               <div class="metric-cell">
-                <div class="metric-label">Face Match</div>
+                <div class="metric-label">Face Match (best frame)</div>
                 <div class="metric-value" id="faceValue">—</div>
                 <div class="metric-sub" id="faceSub"></div>
               </div>
               <div class="metric-cell">
-                <div class="metric-label">Liveness</div>
+                <div class="metric-label">Liveness Score</div>
                 <div class="metric-value" id="liveValue">—</div>
                 <div class="metric-sub" id="liveSub"></div>
               </div>
@@ -1565,7 +1876,9 @@
 
             <div class="polling-wrap" id="pollingWrap">
               <div class="pulse-dot"></div>
-              <div class="polling-text">Running verification pipeline…</div>
+              <div class="polling-text">
+                Running video analysis and verification…
+              </div>
             </div>
 
             <button
@@ -1595,143 +1908,38 @@
       </main>
     </div>
 
-    <!-- ══════════════════════════════════════════════════════════════════════════
-     JAVASCRIPT
-     ══════════════════════════════════════════════════════════════════════════ -->
+    <!-- ══ JAVASCRIPT ══ -->
     <script>
-      /* ── State ────────────────────────────────────────────────────────────── */
-      let selectedCountry = null;
+      /* ══ State ══ */
+      let selectedCountry = "SA"; // Hardcoded: Saudi Arabia
       let selectedDocType = "passport";
-      let selectedDocumentId = null;
-      let countryDocuments = null; // Loaded from /api/countries/<code>/documents
+      let selectedDocumentId = "passport";
       let files = {}; // { field: File | Blob }
       let currentAppId = null;
       let pollTimer = null;
-      let cameraStream = null; // MediaStream
-      let selfieMode = "camera"; // 'camera' | 'upload'
+      let cameraStream = null;
+      let mediaRecorder = null;
+      let recordedChunks = [];
+      let recordingTimer = null;
+      let videoMode = "record"; // 'record' | 'upload'
+      const RECORD_SECONDS = 5;
 
-      /* ── Initialize countries on page load ───────────────────────────────── */
-      async function loadCountries() {
-        try {
-          const res = await fetch("/api/countries");
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error);
+      /* ══ Boot ══ */
+      document.getElementById("zone-back").style.opacity = "0.4";
+      document.getElementById("zone-back").style.pointerEvents = "none";
 
-          const select = document.getElementById("countrySelect");
-          data.countries.forEach((country) => {
-            const option = document.createElement("option");
-            option.value = country.code;
-            option.textContent = country.name;
-            select.appendChild(option);
-          });
-        } catch (err) {
-          console.error("Failed to load countries:", err);
-          showCountryError(
-            "Failed to load countries. Please refresh the page.",
-          );
-        }
+      function getDocIcon(id) {
+        return (
+          {
+            passport: "🛂",
+            drivers_license: "🚗",
+            national_id: "🪪",
+            utility_bill: "📄",
+          }[id] || "📄"
+        );
       }
 
-      /* ── Country selection handler ────────────────────────────────────────── */
-      async function onCountryChange() {
-        const select = document.getElementById("countrySelect");
-        selectedCountry = select.value;
-        hideCountryError();
-
-        if (!selectedCountry) {
-          // Reset documents
-          countryDocuments = null;
-          renderDocumentButtons();
-          return;
-        }
-
-        // Load documents for selected country
-        try {
-          const res = await fetch(
-            `/api/countries/${selectedCountry}/documents`,
-          );
-          const data = await res.json();
-          if (!data.success) throw new Error(data.error);
-
-          countryDocuments = data;
-          renderDocumentButtons();
-        } catch (err) {
-          console.error("Failed to load documents:", err);
-          showCountryError(
-            "Failed to load documents for this country. Please try again.",
-          );
-          countryDocuments = null;
-          renderDocumentButtons();
-        }
-      }
-
-      /* ── Render document buttons based on country ──────────────────────────── */
-      function renderDocumentButtons() {
-        const grid = document.querySelector(".doc-type-grid");
-        grid.innerHTML = "";
-
-        if (!countryDocuments || !countryDocuments.identity_documents) {
-          const emptyMsg = document.createElement("div");
-          emptyMsg.style.cssText =
-            "grid-column: 1 / -1; padding: 20px; text-align: center; color: var(--ink-soft); font-size: 0.9rem;";
-          emptyMsg.textContent = "Please select a country first";
-          grid.appendChild(emptyMsg);
-          return;
-        }
-
-        // Show only identity documents for now (address verification is secondary)
-        countryDocuments.identity_documents.forEach((doc) => {
-          const btn = document.createElement("button");
-          btn.className = "doc-type-btn";
-          btn.dataset.docId = doc.id;
-          btn.dataset.type = doc.docType || doc.id;
-          btn.onclick = function () {
-            selectDocType(this);
-          };
-
-          btn.innerHTML = `
-            <span class="doc-icon">${getDocIcon(doc.id)}</span>
-            <span class="doc-name">${doc.name}</span>
-          `;
-
-          grid.appendChild(btn);
-        });
-
-        // Select first document by default
-        const firstBtn = grid.querySelector(".doc-type-btn");
-        if (firstBtn) {
-          firstBtn.click();
-        }
-      }
-
-      /* ── Get icon for document type ────────────────────────────────────────── */
-      function getDocIcon(docId) {
-        const icons = {
-          passport: "🛂",
-          drivers_license: "🪪",
-          national_id: "🪪",
-          pan_card: "📋",
-          national_id_card: "🪪",
-          nric: "🪪",
-          fin_card: "🪪",
-          default: "📄",
-        };
-        return icons[docId] || icons.default;
-      }
-
-      /* ── Show/hide country error ──────────────────────────────────────────── */
-      function showCountryError(msg) {
-        const el = document.getElementById("countryError");
-        el.textContent = msg;
-        el.classList.add("show");
-      }
-      function hideCountryError() {
-        const el = document.getElementById("countryError");
-        el.textContent = "";
-        el.classList.remove("show");
-      }
-
-      /* ── Document type ────────────────────────────────────────────────────── */
+      /* ══ Doc type ══ */
       function selectDocType(btn) {
         document
           .querySelectorAll(".doc-type-btn")
@@ -1739,33 +1947,41 @@
         btn.classList.add("selected");
         selectedDocType = btn.dataset.type;
         selectedDocumentId = btn.dataset.docId || btn.dataset.type;
-
-        const backZone = document.getElementById("zone-back");
-        const isPassport = selectedDocType === "passport";
-        backZone.style.opacity = isPassport ? "0.4" : "1";
-        backZone.style.pointerEvents = isPassport ? "none" : "auto";
-        if (isPassport) {
+        const bz = document.getElementById("zone-back");
+        // Passport and utility bill are front-only; others need back
+        const frontOnly =
+          selectedDocType === "passport" || selectedDocType === "utility_bill";
+        bz.style.opacity = frontOnly ? "0.4" : "1";
+        bz.style.pointerEvents = frontOnly ? "none" : "auto";
+        if (frontOnly) {
           delete files["document_back"];
           document.getElementById("fname-document_back").textContent = "";
-          backZone.classList.remove("has-file");
+          bz.classList.remove("has-file");
         }
       }
 
-      /* ── File upload helpers ──────────────────────────────────────────────── */
+      /* ══ File upload helpers ══ */
       function onFileSelect(input, field) {
         if (input.files?.[0]) setFile(field, input.files[0]);
+      }
+      function onVideoFileSelect(input) {
+        if (!input.files?.[0]) return;
+        const f = input.files[0];
+        files["selfie_video"] = f;
+        document.getElementById("zone-video")?.classList.add("has-file");
+        document.getElementById("fname-selfie_video").textContent =
+          "✓ " + f.name;
       }
       function setFile(field, fileOrBlob, name) {
         files[field] = fileOrBlob;
         const zoneId = {
           document_front: "zone-front",
           document_back: "zone-back",
-          selfie_photo: "zone-selfie",
         }[field];
         if (zoneId) document.getElementById(zoneId)?.classList.add("has-file");
-        const fname = document.getElementById("fname-" + field);
-        if (fname)
-          fname.textContent = "✓ " + (name || fileOrBlob.name || "captured");
+        const fn = document.getElementById("fname-" + field);
+        if (fn)
+          fn.textContent = "✓ " + (name || fileOrBlob.name || "file selected");
       }
       function onDragOver(e) {
         e.preventDefault();
@@ -1778,46 +1994,44 @@
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
         const f = e.dataTransfer.files[0];
-        if (f) setFile(field, f);
+        if (!f) return;
+        if (field === "selfie_video") {
+          files[field] = f;
+          document.getElementById("zone-video")?.classList.add("has-file");
+          document.getElementById("fname-selfie_video").textContent =
+            "✓ " + f.name;
+        } else setFile(field, f);
       }
 
-      /* ── Selfie mode toggle ───────────────────────────────────────────────── */
-      function switchSelfieMode(mode) {
-        selfieMode = mode;
+      /* ══ Video mode toggle ══ */
+      function switchVideoMode(mode) {
+        videoMode = mode;
         document
-          .getElementById("btn-camera")
-          .classList.toggle("active", mode === "camera");
+          .getElementById("btn-record")
+          .classList.toggle("active", mode === "record");
         document
-          .getElementById("btn-upload-selfie")
+          .getElementById("btn-upload-video")
           .classList.toggle("active", mode === "upload");
-        document.getElementById("selfie-camera-panel").style.display =
-          mode === "camera" ? "" : "none";
-        document.getElementById("selfie-upload-panel").style.display =
+        document.getElementById("video-record-panel").style.display =
+          mode === "record" ? "" : "none";
+        document.getElementById("video-upload-panel").style.display =
           mode === "upload" ? "" : "none";
-
         if (mode === "upload") {
           stopCamera();
-          // Clear any captured selfie so user must re-capture or upload
-          if (
-            !files["selfie_photo"] ||
-            files["selfie_photo"]._source === "camera"
-          ) {
-            delete files["selfie_photo"];
-          }
+          if (files["selfie_video"]?._source === "camera")
+            delete files["selfie_video"];
         }
       }
 
-      /* ── Camera ───────────────────────────────────────────────────────────── */
+      /* ══ Camera ══ */
       async function startCamera() {
         const idle = document.getElementById("cameraIdle");
         const errEl = document.getElementById("cameraError");
         const video = document.getElementById("cameraVideo");
         const guide = document.getElementById("faceGuide");
-        const actions = document.getElementById("captureActions");
-
+        const actions = document.getElementById("recordActions");
         idle.style.display = "none";
         errEl.style.display = "none";
-
         try {
           cameraStream = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -1832,11 +2046,10 @@
           guide.style.display = "";
           actions.style.display = "";
         } catch (err) {
-          console.error("Camera error:", err);
           const msg =
             err.name === "NotAllowedError"
               ? "Camera access was denied. Please allow camera permissions and try again."
-              : "Could not access the camera. Please check your device and try again.";
+              : "Could not access the camera. Please check your device.";
           document.getElementById("cameraErrorMsg").textContent = msg;
           errEl.style.display = "";
         }
@@ -1847,77 +2060,152 @@
           cameraStream.getTracks().forEach((t) => t.stop());
           cameraStream = null;
         }
-        const video = document.getElementById("cameraVideo");
-        video.srcObject = null;
-        video.style.display = "none";
+        const v = document.getElementById("cameraVideo");
+        v.srcObject = null;
+        v.style.display = "none";
         document.getElementById("faceGuide").style.display = "none";
-        document.getElementById("captureActions").style.display = "none";
+        document.getElementById("recordActions").style.display = "none";
+        clearInterval(recordingTimer);
+        if (mediaRecorder && mediaRecorder.state !== "inactive") {
+          try {
+            mediaRecorder.stop();
+          } catch (_) {}
+        }
+        mediaRecorder = null;
       }
 
-      function capturePhoto() {
-        const video = document.getElementById("cameraVideo");
-        const canvas = document.getElementById("cameraCanvas");
-
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-
-        const ctx = canvas.getContext("2d");
-        // Flip horizontally to match the mirrored preview
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) return;
-            blob._source = "camera";
-            files["selfie_photo"] = blob;
-
-            // Show preview
-            const img = document.getElementById("captureImg");
-            img.src = URL.createObjectURL(blob);
-            document.getElementById("capturePreview").style.display = "";
-
-            // Hide live video & guide
-            video.style.display = "none";
-            document.getElementById("faceGuide").style.display = "none";
-            document.getElementById("captureActions").style.display = "none";
-
-            stopCamera();
-          },
-          "image/jpeg",
-          0.92,
-        );
+      /* ══ Recording ══ */
+      function toggleRecording() {
+        if (!mediaRecorder || mediaRecorder.state === "inactive") {
+          startRecording();
+        } else {
+          // Manual stop before timer (rare, but handle gracefully)
+          mediaRecorder.stop();
+        }
       }
 
-      function retakePhoto() {
-        delete files["selfie_photo"];
-        document.getElementById("capturePreview").style.display = "none";
+      function startRecording() {
+        if (!cameraStream) return;
+        recordedChunks = [];
+
+        // Pick best supported format
+        const mimeType =
+          [
+            "video/webm;codecs=vp9",
+            "video/webm;codecs=vp8",
+            "video/webm",
+            "video/mp4",
+          ].find((t) => MediaRecorder.isTypeSupported(t)) || "";
+
+        try {
+          mediaRecorder = new MediaRecorder(
+            cameraStream,
+            mimeType ? { mimeType } : {},
+          );
+        } catch (e) {
+          mediaRecorder = new MediaRecorder(cameraStream);
+        }
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+        };
+        mediaRecorder.onstop = finaliseRecording;
+        mediaRecorder.start(100); // collect every 100ms
+
+        // UI: recording state
+        document.getElementById("recordBtn").classList.add("recording");
+        document.getElementById("recIndicator").style.display = "";
+        document.getElementById("progressWrap").style.display = "";
+        document.getElementById("faceOval").classList.add("recording");
+        document.getElementById("guideText").textContent =
+          "Hold still and blink naturally…";
+        document.getElementById("recordHint").textContent = "Recording…";
+
+        const circle = document.getElementById("progressCircle");
+        const circumference = 125.66;
+        const startTime = Date.now();
+
+        recordingTimer = setInterval(() => {
+          const elapsed = (Date.now() - startTime) / 1000;
+          const remaining = Math.max(0, RECORD_SECONDS - elapsed);
+          const progress = elapsed / RECORD_SECONDS;
+          circle.style.strokeDashoffset = circumference * (1 - progress);
+          document.getElementById("countdownNum").textContent =
+            Math.ceil(remaining);
+
+          if (elapsed >= RECORD_SECONDS) {
+            clearInterval(recordingTimer);
+            if (mediaRecorder && mediaRecorder.state !== "inactive")
+              mediaRecorder.stop();
+          }
+        }, 50);
+      }
+
+      function finaliseRecording() {
+        clearInterval(recordingTimer);
+
+        // Reset recording UI
+        document.getElementById("recordBtn").classList.remove("recording");
+        document.getElementById("recIndicator").style.display = "none";
+        document.getElementById("progressWrap").style.display = "none";
+        document.getElementById("faceOval").classList.remove("recording");
+        document.getElementById("guideText").textContent =
+          "Centre your face in the oval";
+        document.getElementById("recordHint").textContent =
+          "Press to start 5-second recording";
+
+        if (!recordedChunks.length) {
+          alert("Recording failed — please try again.");
+          return;
+        }
+
+        const mimeType = mediaRecorder.mimeType || "video/webm";
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        blob._source = "camera";
+        files["selfie_video"] = blob;
+
+        // Show preview
+        const previewUrl = URL.createObjectURL(blob);
+        const previewVid = document.getElementById("previewVideo");
+        previewVid.src = previewUrl;
+        previewVid.play();
+
+        // Hide live feed, show preview
+        document.getElementById("cameraVideo").style.display = "none";
+        document.getElementById("faceGuide").style.display = "none";
+        document.getElementById("recordActions").style.display = "none";
+        document.getElementById("videoPreview").style.display = "";
+        stopCamera(); // release mic/cam
+      }
+
+      function retakeVideo() {
+        delete files["selfie_video"];
+        document.getElementById("videoPreview").style.display = "none";
+        const previewVid = document.getElementById("previewVideo");
+        previewVid.pause();
+        previewVid.src = "";
         // Reset to idle so user must re-open camera
         document.getElementById("cameraIdle").style.display = "";
       }
 
-      /* ── Submit ───────────────────────────────────────────────────────────── */
+      /* ══ Submit ══ */
       async function submitApplication() {
         hideError();
-
-        if (!selectedCountry) {
-          showError("Please select your country.");
-          return;
-        }
         if (!files["document_front"]) {
           showError("Please upload the front of your document.");
           return;
         }
-        if (selectedDocType !== "passport" && !files["document_back"]) {
+        const frontOnly =
+          selectedDocType === "passport" || selectedDocType === "utility_bill";
+        if (!frontOnly && !files["document_back"]) {
           showError("Please upload the back of your document.");
           return;
         }
-        if (!files["selfie_photo"]) {
+        if (!files["selfie_video"]) {
           showError(
-            selfieMode === "camera"
-              ? "Please take a live selfie using the camera."
-              : "Please upload a selfie photo.",
+            videoMode === "record"
+              ? "Please record your 5-second liveness video."
+              : "Please upload a liveness video.",
           );
           return;
         }
@@ -1931,19 +2219,19 @@
         fd.append(
           "document_front",
           files["document_front"],
-          files["document_front"].name || "document_front.jpg",
+          files["document_front"].name || "doc_front.jpg",
         );
         if (files["document_back"])
           fd.append(
             "document_back",
             files["document_back"],
-            files["document_back"].name || "document_back.jpg",
+            files["document_back"].name || "doc_back.jpg",
           );
-        fd.append(
-          "selfie_photo",
-          files["selfie_photo"],
-          files["selfie_photo"].name || "selfie.jpg",
-        );
+
+        // Extension: webm for recorded, original name for uploaded
+        const vid = files["selfie_video"];
+        const ext = vid.type?.includes("mp4") ? "mp4" : "webm";
+        fd.append("selfie_video", vid, vid.name || `liveness.${ext}`);
 
         try {
           const res = await fetch("/api/applications", {
@@ -1951,8 +2239,38 @@
             body: fd,
           });
           const data = await res.json();
-          if (!data.success) throw new Error(data.error || "Submission failed");
-
+          if (!data.success) {
+            if (res.status === 422 || data.error_code === "INVALID_DOCUMENT") {
+              const details = data.validation_details || {};
+              const detected = details.document_type_detected;
+              const country = details.issuing_country_detected;
+              let detail = "";
+              if (
+                country &&
+                country.toLowerCase() !== "saudi arabia" &&
+                country !== "Unknown"
+              ) {
+                detail =
+                  "🇸🇦 Only Saudi Arabia documents accepted · Detected: " +
+                  country;
+              } else if (
+                detected &&
+                detected !== "none" &&
+                detected !== "unknown"
+              ) {
+                detail = "Detected type: " + detected;
+              }
+              showError(
+                data.error ||
+                  "Invalid document. Please upload a Saudi Arabia identity document.",
+                detail || null,
+              );
+            } else {
+              showError(data.error || "Submission failed.");
+            }
+            setLoading(false);
+            return;
+          }
           currentAppId = data.application_id;
           stopCamera();
           goToStep2();
@@ -1963,7 +2281,7 @@
         }
       }
 
-      /* ── Navigation ───────────────────────────────────────────────────────── */
+      /* ══ Navigation ══ */
       function goToStep2() {
         document.getElementById("step-1").classList.remove("active");
         document.getElementById("step-2").classList.add("active");
@@ -1976,12 +2294,11 @@
         setLoading(false);
       }
 
-      /* ── Polling ──────────────────────────────────────────────────────────── */
+      /* ══ Polling ══ */
       function startPolling() {
         pollStatus();
         pollTimer = setInterval(pollStatus, 2500);
       }
-
       async function pollStatus() {
         try {
           const res = await fetch(`/api/applications/${currentAppId}`);
@@ -1994,211 +2311,78 @@
         } catch (_) {}
       }
 
-      /* ── Render result ────────────────────────────────────────────────────── */
+      /* ══ Render result ══ */
       function renderResult(app) {
         const v = app.verification || {};
-        const risk = v.risk_score ?? null;
+        const isOnfido =
+          v.method === "onfido" || app.status === "pending_onfido";
 
-        const statusMap = {
-          approved: [
-            "✓ Approved",
-            "status-approved",
-            "Identity Verified",
-            "Your documents have passed all automated checks.",
-          ],
-          rejected: [
-            "✗ Rejected",
-            "status-rejected",
-            "Verification Failed",
-            app.rejection_reason || "Documents did not pass verification.",
-          ],
-          pending_onfido: [
-            "⟳ External Review",
-            "status-pending",
-            "Sent to Onfido",
-            "One or more checks failed. Onfido is independently reviewing your document and selfie.",
-          ],
-          reviewing: [
-            "◎ Manual Review",
-            "status-reviewing",
-            "Under Manual Review",
-            "An agent will review your submission shortly.",
-          ],
-        };
+        // ── Status badge & heading ──────────────────────────────────────────
+        let badge, cls, title, sub;
+        if (app.status === "rejected") {
+          badge = "✗ Rejected";
+          cls = "status-rejected";
+          title = "Verification Failed";
+          sub = app.rejection_reason || "Documents did not pass verification.";
+        } else if (app.status === "reviewing") {
+          badge = "◎ Manual Review";
+          cls = "status-reviewing";
+          title = "Under Manual Review";
+          sub = "An agent will review your submission shortly.";
+        } else if (isOnfido) {
+          badge = "⟳ Submitted";
+          cls = "status-pending";
+          title = "Submitted for Verification";
+          sub =
+            "Your documents are being verified either by Onfido or internally. You will be notified once the review is complete.";
+        } else {
+          // internal pass
+          badge = "✓ Submitted";
+          cls = "status-approved";
+          title = "Submitted for Internal Verification";
+          sub =
+            "Your documents have been received and passed automated checks. Our team will finalise the review shortly.";
+        }
 
-        const [badge, cls, title, sub] = statusMap[app.status] || [
-          "⏳ Processing",
-          "status-processing",
-          "Processing…",
-          "",
-        ];
         document.getElementById("statusBadge").textContent = badge;
         document.getElementById("statusBadge").className =
           "result-status " + cls;
         document.getElementById("resultTitle").textContent = title;
         document.getElementById("resultSubtitle").textContent = sub;
 
-        if (risk !== null) {
-          document.getElementById("metricsGrid").style.display = "";
-
-          const rv = Math.round(risk);
-          document.getElementById("riskValue").textContent = rv + " / 100";
-          document.getElementById("riskBar").style.width = rv + "%";
-          const riskCell = document.getElementById("riskCell");
-          if (rv < 50) {
-            riskCell.className = "metric-cell risk-low";
-            document.getElementById("riskSub").textContent =
-              "Low risk — internal";
-          } else if (rv < 75) {
-            riskCell.className = "metric-cell risk-mid";
-            document.getElementById("riskSub").textContent =
-              "Medium risk — Onfido";
-          } else {
-            riskCell.className = "metric-cell risk-high";
-            document.getElementById("riskSub").textContent =
-              "High risk — Onfido";
-          }
-
-          const face = v.face_match || {};
-          document.getElementById("faceValue").textContent =
-            face.score != null ? Math.round(face.score) + "%" : "—";
-          document.getElementById("faceSub").textContent =
-            face.score != null
-              ? face.score >= 60
-                ? "✓ Match confirmed"
-                : "✗ No match"
-              : "—";
-
-          const live = v.liveness || {};
-          document.getElementById("liveValue").textContent =
-            live.score != null ? Math.round(live.score) + "%" : "—";
-          document.getElementById("liveSub").textContent = live.is_live
-            ? "✓ Live detected"
-            : live.score != null
-              ? "✗ Not detected"
-              : "—";
-
-          const exp = v.expiry || {};
-          document.getElementById("expiryValue").textContent =
-            exp.expiry_date || "—";
-          document.getElementById("expirySub").textContent = exp.is_expired
-            ? "✗ Expired"
-            : exp.is_expiring_soon
-              ? "⚠ Expiring soon"
-              : exp.expiry_date
-                ? "✓ Valid"
-                : exp.error || "Could not extract";
-        }
-
-        // Checks list
-        const fake = v.fake_document || {};
-        const checks = [
-          {
-            name: "Document Authenticity",
-            value: fake.is_fake ? "Suspicious" : "Passed",
-            dot: fake.is_fake ? "dot-red" : "dot-green",
-            note:
-              fake.reasons?.[0] ||
-              (fake.is_fake ? "" : "No tampering detected"),
-          },
-          {
-            name: "Expiry Check",
-            value: (v.expiry || {}).is_valid
-              ? "Valid"
-              : (v.expiry || {}).is_expired
-                ? "Expired"
-                : "Unverified",
-            dot: (v.expiry || {}).is_valid
-              ? "dot-green"
-              : (v.expiry || {}).is_expired
-                ? "dot-red"
-                : "dot-amber",
-            note: (v.expiry || {}).expiry_date
-              ? "Expires " + (v.expiry || {}).expiry_date
-              : "",
-          },
-          {
-            name: "Face Match",
-            value: (v.face_match || {}).match ? "Matched" : "No match",
-            dot: (v.face_match || {}).match ? "dot-green" : "dot-red",
-            note:
-              v.face_match?.score != null
-                ? `Score: ${Math.round(v.face_match.score)}%`
-                : "",
-          },
-          {
-            name: "Liveness Detection",
-            value: (v.liveness || {}).is_live ? "Live" : "Failed",
-            dot: (v.liveness || {}).is_live ? "dot-green" : "dot-amber",
-            note:
-              v.liveness?.score != null
-                ? `Score: ${Math.round(v.liveness.score)}%`
-                : "",
-          },
-          {
-            name: "Verification Method",
-            value: v.method === "onfido" ? "Onfido (External)" : "Internal",
-            dot: v.method === "onfido" ? "dot-blue" : "dot-green",
-            note:
-              v.method === "onfido"
-                ? ((app.onfido_data || {}).escalation_reasons || []).join(
-                    " · ",
-                  ) || "Escalated for review"
-                : "All checks passed internally",
-          },
-        ];
-
-        document.getElementById("checksContainer").innerHTML = checks
-          .map(
-            (c) => `
-      <div class="check-item">
-        <div class="check-dot ${c.dot}"></div>
-        <div class="check-name">
-          ${c.name}
-          ${c.note ? `<div style="font-size:0.72rem;color:var(--ink-soft);margin-top:2px">${c.note}</div>` : ""}
-        </div>
-        <div class="check-val">${c.value}</div>
-      </div>`,
-          )
-          .join("");
-        document.getElementById("checksList").style.display = "";
-
-        // Route badge
+        // ── Route badge (simplified) ────────────────────────────────────────
         const rb = document.getElementById("routeBadge");
         rb.style.display = "";
         if (app.status === "rejected") {
           rb.innerHTML = `<div class="route-badge route-rejected"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></svg></div><div class="route-text"><strong>Verification Rejected</strong><p>${app.rejection_reason || "Did not pass automated verification."}</p></div></div>`;
-        } else if (v.method === "onfido") {
-          const runId = (app.onfido_data || {}).workflow_run_id || "—";
-          const escalationReasons =
-            (app.onfido_data || {}).escalation_reasons || [];
-          const reasonsHtml = escalationReasons.length
-            ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:5px">${escalationReasons.map((r) => `<span style="background:rgba(37,99,235,0.1);color:#1e40af;font-size:0.68rem;font-weight:600;padding:2px 8px;border-radius:4px;font-family:monospace">${r}</span>`).join("")}</div>`
-            : "";
-          rb.innerHTML = `<div class="route-badge route-onfido"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="route-text"><strong>Escalated to Onfido</strong><p>One or more checks failed the threshold. Onfido is independently verifying your document and selfie.${reasonsHtml}<span style="display:block;font-family:monospace;font-size:0.68rem;opacity:0.5;margin-top:5px">${runId}</span></p></div></div>`;
+        } else if (isOnfido) {
+          rb.innerHTML = `<div class="route-badge route-onfido"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="route-text"><strong>Submitted for Verification</strong><p>Your submission has been forwarded to Admin for verification. You will be notified of the outcome.</p></div></div>`;
         } else {
-          rb.innerHTML = `<div class="route-badge route-internal"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div class="route-text"><strong>Internally Approved</strong><p>Risk score &lt; 50. All checks passed our automated pipeline.</p></div></div>`;
+          rb.innerHTML = `<div class="route-badge route-internal"><div class="route-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div class="route-text"><strong>Submitted for Internal Verification</strong><p>Your documents have been received and passed automated screening. Our team will complete the review.</p></div></div>`;
         }
 
+        // Hide detailed score metrics and checks from user view
+        document.getElementById("metricsGrid").style.display = "none";
+        document.getElementById("checksList").style.display = "none";
         document.getElementById("pollingWrap").style.display = "none";
         document.getElementById("restartBtn").style.display = "";
       }
 
-      /* ── Helpers ──────────────────────────────────────────────────────────── */
+      /* ══ Helpers ══ */
       function restartFlow() {
         clearInterval(pollTimer);
         stopCamera();
         currentAppId = null;
         files = {};
-        selfieMode = "camera";
-
-        ["document_front", "document_back", "selfie_photo"].forEach((f) => {
+        videoMode = "record";
+        ["document_front", "document_back"].forEach((f) => {
           const el = document.getElementById(f);
           if (el) el.value = "";
           const fn = document.getElementById("fname-" + f);
           if (fn) fn.textContent = "";
         });
-        ["zone-front", "zone-back"].forEach((id) =>
+        document.getElementById("fname-selfie_video").textContent = "";
+        ["zone-front", "zone-back", "zone-video"].forEach((id) =>
           document.getElementById(id)?.classList.remove("has-file"),
         );
         document
@@ -2207,20 +2391,23 @@
         document
           .querySelector('[data-type="passport"]')
           .classList.add("selected");
-
-        // Reset back zone
+        selectedDocType = "passport";
+        selectedDocumentId = "passport";
         const bz = document.getElementById("zone-back");
         bz.style.opacity = "0.4";
         bz.style.pointerEvents = "none";
         bz.classList.remove("has-file");
 
-        // Reset selfie card
-        switchSelfieMode("camera");
+        // Reset video UI
+        document.getElementById("videoPreview").style.display = "none";
         document.getElementById("cameraIdle").style.display = "";
         document.getElementById("cameraError").style.display = "none";
-        document.getElementById("capturePreview").style.display = "none";
-        document.getElementById("btn-camera").classList.add("active");
-        document.getElementById("btn-upload-selfie").classList.remove("active");
+        document.getElementById("recordActions").style.display = "none";
+        document.getElementById("faceGuide").style.display = "none";
+        document.getElementById("btn-record").classList.add("active");
+        document.getElementById("btn-upload-video").classList.remove("active");
+        document.getElementById("video-record-panel").style.display = "";
+        document.getElementById("video-upload-panel").style.display = "none";
 
         // Reset step 2
         document.getElementById("statusBadge").textContent = "⏳ Processing";
@@ -2249,14 +2436,57 @@
         setLoading(false);
       }
 
+      // ── Auth: load user info + signout ─────────────────────────────────────
+      (function () {
+        fetch("/api/auth/me")
+          .then((r) => r.json())
+          .then((d) => {
+            if (!d.authenticated) {
+              window.location.replace("/login.html");
+              return;
+            }
+            const u = d.user;
+            const avatarEl = document.getElementById("sidebar-avatar");
+            const nameEl = document.getElementById("sidebar-username");
+            const infoEl = document.getElementById("sidebar-user-info");
+            if (nameEl) nameEl.textContent = u.name || u.email || "User";
+            if (avatarEl) {
+              if (u.avatar) {
+                avatarEl.innerHTML = `<img src="${u.avatar}" style="width:100%;height:100%;object-fit:cover;" />`;
+              } else {
+                avatarEl.textContent = (u.name ||
+                  u.email ||
+                  "U")[0].toUpperCase();
+              }
+            }
+            if (infoEl) infoEl.style.display = "flex";
+          })
+          .catch(() => window.location.replace("/login.html"));
+      })();
+
+      async function handleSignout() {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/login.html";
+      }
+
       function setLoading(on) {
         const btn = document.getElementById("submitBtn");
         btn.classList.toggle("loading", on);
         btn.disabled = on;
       }
-      function showError(msg) {
+      function showError(msg, detail) {
         const el = document.getElementById("errorBanner");
-        el.textContent = msg;
+        el.innerHTML = "";
+        const main = document.createElement("span");
+        main.textContent = msg;
+        el.appendChild(main);
+        if (detail) {
+          const sub = document.createElement("small");
+          sub.style.cssText =
+            "display:block;margin-top:4px;opacity:0.75;font-size:0.8em;";
+          sub.textContent = detail;
+          el.appendChild(sub);
+        }
         el.classList.add("show");
         el.scrollIntoView({ behavior: "smooth", block: "nearest" });
       }
@@ -2271,14 +2501,6 @@
         el.textContent = "Copied!";
         setTimeout(() => (el.textContent = orig), 1500);
       }
-
-      /* ── Init ────────────────────────────────────────────────────────────── */
-      // Load countries on page load
-      loadCountries();
-
-      // Passport back always dimmed by default
-      document.getElementById("zone-back").style.opacity = "0.4";
-      document.getElementById("zone-back").style.pointerEvents = "none";
     </script>
   </body>
 </html>

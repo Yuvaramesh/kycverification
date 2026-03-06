@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KYC Verify — Sign In</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --ink: #0d0f12;
+        --ink-soft: #4a5260;
+        --line: #e4e7ed;
+        --surface: #f7f8fa;
+        --white: #ffffff;
+        --navy: #1a1f2e;
+        --accent: #2563eb;
+        --accent-dark: #1d4ed8;
+        --green: #16a34a;
+        --red: #dc2626;
+        --radius: 14px;
+      }
+
+      html,
+      body {
+        min-height: 100vh;
+        font-family: "DM Sans", sans-serif;
+        background: var(--surface);
+        color: var(--ink);
+      }
+
+      .page {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 100vh;
+      }
+
+      /* ── Left panel ── */
+      .left {
+        background: var(--navy);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        padding: 52px 56px;
+        position: relative;
+        overflow: hidden;
+      }
+      .left::before {
+        content: "";
+        position: absolute;
+        top: -120px;
+        right: -120px;
+        width: 400px;
+        height: 400px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(37, 99, 235, 0.25) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .left::after {
+        content: "";
+        position: absolute;
+        bottom: -80px;
+        left: -80px;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle,
+          rgba(37, 99, 235, 0.15) 0%,
+          transparent 70%
+        );
+        pointer-events: none;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        z-index: 1;
+      }
+      .brand-mark {
+        width: 40px;
+        height: 40px;
+        background: white;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+      }
+      .brand-name {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.2rem;
+        color: white;
+        letter-spacing: -0.02em;
+      }
+      .left-body {
+        z-index: 1;
+      }
+      .left-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(37, 99, 235, 0.25);
+        border: 1px solid rgba(37, 99, 235, 0.4);
+        color: #93c5fd;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 5px 12px;
+        border-radius: 20px;
+        margin-bottom: 24px;
+      }
+      .left-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 2.5rem;
+        line-height: 1.1;
+        letter-spacing: -0.04em;
+        color: white;
+        margin-bottom: 16px;
+      }
+      .left-title span {
+        color: #60a5fa;
+      }
+      .left-sub {
+        font-size: 0.92rem;
+        color: rgba(255, 255, 255, 0.55);
+        line-height: 1.7;
+        max-width: 360px;
+        margin-bottom: 44px;
+      }
+      .feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .feature-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 0.875rem;
+      }
+      .feature-icon {
+        width: 32px;
+        height: 32px;
+        background: rgba(37, 99, 235, 0.2);
+        border: 1px solid rgba(37, 99, 235, 0.3);
+        border-radius: 8px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+      }
+      .left-footer {
+        z-index: 1;
+        font-size: 0.75rem;
+        color: rgba(255, 255, 255, 0.25);
+      }
+
+      /* ── Right panel ── */
+      .right {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 52px 48px;
+      }
+      .auth-box {
+        width: 100%;
+        max-width: 420px;
+      }
+      .auth-tabs {
+        display: flex;
+        background: var(--line);
+        border-radius: 10px;
+        padding: 4px;
+        margin-bottom: 36px;
+      }
+      .tab-btn {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        background: transparent;
+        border-radius: 7px;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--ink-soft);
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+      .tab-btn.active {
+        background: white;
+        color: var(--ink);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+        font-weight: 600;
+      }
+      .auth-title {
+        font-family: "Syne", sans-serif;
+        font-weight: 800;
+        font-size: 1.6rem;
+        letter-spacing: -0.03em;
+        margin-bottom: 6px;
+      }
+      .auth-sub {
+        font-size: 0.875rem;
+        color: var(--ink-soft);
+        margin-bottom: 28px;
+      }
+
+      /* Google button */
+      .btn-google {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 12px;
+        border: 1.5px solid var(--line);
+        border-radius: 10px;
+        background: white;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--ink);
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 20px;
+      }
+      .btn-google:hover {
+        border-color: #93c5fd;
+        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+        background: #f8faff;
+      }
+
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        color: var(--ink-soft);
+        font-size: 0.78rem;
+      }
+      .divider::before,
+      .divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
+
+      /* Form */
+      .form-group {
+        margin-bottom: 16px;
+      }
+      .form-label {
+        display: block;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--ink);
+        margin-bottom: 7px;
+      }
+      .form-input {
+        width: 100%;
+        padding: 11px 14px;
+        border: 1.5px solid var(--line);
+        border-radius: 10px;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.9rem;
+        color: var(--ink);
+        background: white;
+        outline: none;
+        transition:
+          border-color 0.2s,
+          box-shadow 0.2s;
+      }
+      .form-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+      }
+      .form-input.error {
+        border-color: var(--red);
+      }
+
+      .btn-primary {
+        width: 100%;
+        padding: 13px;
+        background: var(--navy);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-family: "DM Sans", sans-serif;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-top: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .btn-primary:hover {
+        background: #0f1420;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      }
+      .btn-primary:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .alert {
+        padding: 10px 14px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        margin-bottom: 16px;
+        display: none;
+      }
+      .alert.show {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .alert-error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: var(--red);
+      }
+      .alert-success {
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        color: var(--green);
+      }
+
+      .form-panel {
+        display: none;
+      }
+      .form-panel.active {
+        display: block;
+      }
+
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+        display: none;
+      }
+      .btn-primary.loading .spinner {
+        display: block;
+      }
+      .btn-primary.loading .btn-label {
+        display: none;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .terms {
+        font-size: 0.75rem;
+        color: var(--ink-soft);
+        text-align: center;
+        margin-top: 16px;
+        line-height: 1.5;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .page {
+          grid-template-columns: 1fr;
+        }
+        .left {
+          display: none;
+        }
+        .right {
+          padding: 36px 24px;
+          align-items: flex-start;
+          padding-top: 60px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <!-- Left branding panel -->
+      <div class="left">
+        <div class="brand">
+          <div class="brand-mark">
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#1a1f2e"
+              stroke-width="2.5"
+            >
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <span class="brand-name">KYC Verify</span>
+        </div>
+
+        <div class="left-body">
+          <div class="left-tag">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="#93c5fd">
+              <circle cx="12" cy="12" r="10" />
+            </svg>
+            Secure Identity Verification
+          </div>
+          <h1 class="left-title">
+            Verify identities<br />with <span>confidence</span>
+          </h1>
+          <p class="left-sub">
+            AI-powered KYC checks using document analysis, face matching, and
+            live video liveness detection.
+          </p>
+          <div class="feature-list">
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#60a5fa"
+                  stroke-width="2.5"
+                >
+                  <rect x="3" y="4" width="18" height="14" rx="2" />
+                  <path d="M7 8h4M7 12h6" />
+                </svg>
+              </div>
+              Document OCR &amp; Authenticity Check
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#60a5fa"
+                  stroke-width="2.5"
+                >
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M6 20v-2a6 6 0 0112 0v2" />
+                </svg>
+              </div>
+              Multi-frame Face Match
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#60a5fa"
+                  stroke-width="2.5"
+                >
+                  <path d="M15 10l-5 5M9 10l5 5" />
+                  <circle cx="12" cy="12" r="9" />
+                </svg>
+              </div>
+              Video Liveness Detection
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#60a5fa"
+                  stroke-width="2.5"
+                >
+                  <path
+                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  />
+                </svg>
+              </div>
+              Onfido Escalation Support
+            </div>
+          </div>
+        </div>
+
+        <div class="left-footer">
+          © 2025 KYC Verify · Secure · Private · Compliant
+        </div>
+      </div>
+
+      <!-- Right auth panel -->
+      <div class="right">
+        <div class="auth-box">
+          <!-- Tabs -->
+          <div class="auth-tabs">
+            <button
+              class="tab-btn active"
+              id="tab-login"
+              onclick="switchTab('login')"
+            >
+              Sign In
+            </button>
+            <button
+              class="tab-btn"
+              id="tab-signup"
+              onclick="switchTab('signup')"
+            >
+              Create Account
+            </button>
+          </div>
+
+          <!-- ── LOGIN FORM ── -->
+          <div class="form-panel active" id="panel-login">
+            <h2 class="auth-title">Welcome back</h2>
+            <p class="auth-sub">Sign in to your KYC Verify account</p>
+
+            <div class="alert alert-error" id="login-error"></div>
+
+            <button class="btn-google" onclick="signInWithGoogle()">
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Continue with Google
+            </button>
+
+            <div class="divider">or continue with email</div>
+
+            <div class="form-group">
+              <label class="form-label" for="login-email">Email address</label>
+              <input
+                class="form-input"
+                id="login-email"
+                type="email"
+                placeholder="you@example.com"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="login-password">Password</label>
+              <input
+                class="form-input"
+                id="login-password"
+                type="password"
+                placeholder="Your password"
+                autocomplete="current-password"
+              />
+            </div>
+
+            <button class="btn-primary" id="login-btn" onclick="handleLogin()">
+              <span class="btn-label">Sign In</span>
+              <div class="spinner"></div>
+            </button>
+
+            <p class="terms">
+              Don't have an account?
+              <a
+                href="#"
+                onclick="
+                  switchTab('signup');
+                  return false;
+                "
+                style="color: var(--accent); font-weight: 600"
+                >Create one</a
+              >
+            </p>
+          </div>
+
+          <!-- ── SIGNUP FORM ── -->
+          <div class="form-panel" id="panel-signup">
+            <h2 class="auth-title">Create account</h2>
+            <p class="auth-sub">Join KYC Verify — it's free</p>
+
+            <div class="alert alert-error" id="signup-error"></div>
+            <div class="alert alert-success" id="signup-success"></div>
+
+            <button class="btn-google" onclick="signInWithGoogle()">
+              <svg width="18" height="18" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              Sign up with Google
+            </button>
+
+            <div class="divider">or register with email</div>
+
+            <div class="form-group">
+              <label class="form-label" for="signup-name">Full name</label>
+              <input
+                class="form-input"
+                id="signup-name"
+                type="text"
+                placeholder="Jane Smith"
+                autocomplete="name"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="signup-email">Email address</label>
+              <input
+                class="form-input"
+                id="signup-email"
+                type="email"
+                placeholder="you@example.com"
+                autocomplete="email"
+              />
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="signup-password"
+                >Password
+                <span style="color: var(--ink-soft); font-weight: 400"
+                  >(min. 6 characters)</span
+                ></label
+              >
+              <input
+                class="form-input"
+                id="signup-password"
+                type="password"
+                placeholder="Create a password"
+                autocomplete="new-password"
+              />
+            </div>
+
+            <button
+              class="btn-primary"
+              id="signup-btn"
+              onclick="handleSignup()"
+            >
+              <span class="btn-label">Create Account</span>
+              <div class="spinner"></div>
+            </button>
+
+            <p class="terms">
+              Already have an account?
+              <a
+                href="#"
+                onclick="
+                  switchTab('login');
+                  return false;
+                "
+                style="color: var(--accent); font-weight: 600"
+                >Sign in</a
+              >
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── Redirect if already logged in — admin → dashboard, user → upload ──
+      fetch("/api/auth/me")
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.authenticated) {
+            redirectByRole(d.user.role);
+          }
+        })
+        .catch(() => {});
+
+      // ── Handle error messages from redirects ───────────────────────────────
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlError = urlParams.get("error");
+      if (urlError) {
+        const msgs = {
+          google_denied: "Google sign-in was cancelled.",
+          oauth_not_configured: "Google OAuth is not configured on the server.",
+          token_exchange_failed:
+            "Failed to exchange Google token. Please try again.",
+          userinfo_failed: "Could not retrieve your Google account info.",
+          no_email: "Your Google account did not return an email.",
+          not_admin: "Access denied. Administrator privileges required.",
+        };
+        // Wait for DOM, then show error
+        document.addEventListener("DOMContentLoaded", () => {
+          showError(
+            "login",
+            msgs[urlError] || "Authentication failed. Please try again.",
+          );
+        });
+      }
+
+      // ── Role-based redirect ────────────────────────────────────────────────
+      function redirectByRole(role) {
+        window.location.href = role === "admin" ? "/admin.html" : "/index.html";
+      }
+
+      // ── Tab switching ──────────────────────────────────────────────────────
+      function switchTab(tab) {
+        ["login", "signup"].forEach((t) => {
+          document
+            .getElementById(`tab-${t}`)
+            .classList.toggle("active", t === tab);
+          document
+            .getElementById(`panel-${t}`)
+            .classList.toggle("active", t === tab);
+        });
+      }
+
+      // ── Google sign-in ─────────────────────────────────────────────────────
+      function signInWithGoogle() {
+        window.location.href = "/api/auth/google";
+      }
+
+      // ── Login ──────────────────────────────────────────────────────────────
+      async function handleLogin() {
+        clearErrors();
+        const email = document.getElementById("login-email").value.trim();
+        const password = document.getElementById("login-password").value;
+        if (!email || !password) {
+          showError("login", "Please enter your email and password.");
+          return;
+        }
+        setLoading("login", true);
+        try {
+          const res = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            showError("login", data.error || "Login failed.");
+          } else {
+            // Backend returns role — admin goes to dashboard, user to upload
+            redirectByRole(data.user.role);
+          }
+        } catch {
+          showError("login", "Network error. Please try again.");
+        } finally {
+          setLoading("login", false);
+        }
+      }
+
+      // ── Signup ─────────────────────────────────────────────────────────────
+      async function handleSignup() {
+        clearErrors();
+        const name = document.getElementById("signup-name").value.trim();
+        const email = document.getElementById("signup-email").value.trim();
+        const password = document.getElementById("signup-password").value;
+        if (!name || !email || !password) {
+          showError("signup", "All fields are required.");
+          return;
+        }
+        if (password.length < 6) {
+          showError("signup", "Password must be at least 6 characters.");
+          return;
+        }
+        setLoading("signup", true);
+        try {
+          const res = await fetch("/api/auth/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, email, password }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            if (res.status === 409) {
+              document.getElementById("login-email").value = email;
+              document.getElementById("login-password").value = password;
+              switchTab("login");
+              showError(
+                "login",
+                "Account already exists. We've filled in your details — just click Sign In.",
+              );
+            } else {
+              showError("signup", data.error || "Sign up failed.");
+            }
+          } else {
+            redirectByRole(data.user.role);
+          }
+        } catch {
+          showError("signup", "Network error. Please try again.");
+        } finally {
+          setLoading("signup", false);
+        }
+      }
+
+      // ── Keyboard enter support ─────────────────────────────────────────────
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          const active = document.querySelector(".form-panel.active").id;
+          if (active === "panel-login") handleLogin();
+          else handleSignup();
+        }
+      });
+
+      // ── Helpers ────────────────────────────────────────────────────────────
+      function setLoading(form, on) {
+        const btn = document.getElementById(`${form}-btn`);
+        btn.classList.toggle("loading", on);
+        btn.disabled = on;
+      }
+      function showError(form, msg) {
+        const el = document.getElementById(`${form}-error`);
+        el.textContent = msg;
+        el.classList.add("show");
+      }
+      function clearErrors() {
+        document
+          .querySelectorAll(".alert")
+          .forEach((e) => e.classList.remove("show"));
+      }
+    </script>
+  </body>
+</html>
