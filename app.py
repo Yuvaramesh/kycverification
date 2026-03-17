@@ -622,8 +622,6 @@ def extract_frames_from_video(video_path: str, max_frames: int = 10):
     """
     Open video, sample up to max_frames evenly across its duration.
     Returns list of numpy BGR arrays.
-    Handles WebM/browser-recorded videos that report 0 total frames via
-    time-based sampling as fallback.
     """
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -632,53 +630,27 @@ def extract_frames_from_video(video_path: str, max_frames: int = 10):
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS) or 25
-    if fps <= 0:
-        fps = 25
+    duration_sec = total_frames / fps
 
-    print(f"Video: {total_frames} frames @ {fps:.1f} fps")
+    print(f"Video: {total_frames} frames @ {fps:.1f} fps = {duration_sec:.1f}s")
+
+    if total_frames == 0:
+        cap.release()
+        return []
+
+    # Sample evenly
+    step = max(1, total_frames // max_frames)
+    sample_indices = list(range(0, total_frames, step))[:max_frames]
 
     frames = []
-
-    # --- Strategy A: frame-index seek (works for MP4 and well-formed WebM) ---
-    if total_frames > 1:
-        step = max(1, total_frames // max_frames)
-        sample_indices = list(range(0, total_frames, step))[:max_frames]
-        for idx in sample_indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
-            ret, frame = cap.read()
-            if ret and frame is not None:
-                frames.append(frame)
-
-    # --- Strategy B: time-based sampling (fallback for WebM/browser videos) ---
-    # Used when frame-index seek yields ≤1 frame (common with WebM from getUserMedia)
-    if len(frames) <= 1:
-        frames = []
-        cap.set(cv2.CAP_PROP_POS_MSEC, 0)
-        # First pass: read all frames sequentially, collect at timed intervals
-        all_frames = []
-        while True:
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                break
-            all_frames.append(frame)
-
-        if len(all_frames) > 0:
-            # Evenly sample from what we read
-            step = max(1, len(all_frames) // max_frames)
-            frames = all_frames[::step][:max_frames]
-        else:
-            # Last resort: seek by milliseconds at fixed intervals (0.5s apart)
-            for ms in range(0, 10000, 500):  # up to 10s video
-                cap.set(cv2.CAP_PROP_POS_MSEC, ms)
-                ret, frame = cap.read()
-                if not ret or frame is None:
-                    break
-                frames.append(frame)
-                if len(frames) >= max_frames:
-                    break
+    for idx in sample_indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
+        ret, frame = cap.read()
+        if ret and frame is not None:
+            frames.append(frame)
 
     cap.release()
-    print(f"Extracted {len(frames)} frames from video (total_reported={total_frames})")
+    print(f"Extracted {len(frames)} frames from video")
     return frames
 
 
@@ -835,49 +807,10 @@ def check_liveness_from_video(frames: list) -> dict:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def crop_face_from_image(image_path: str):
-    """
-    Detect and crop the face region from a document photo (passport, ID).
-    Returns path to cropped face temp file, or None if no face found.
-    Improves matching accuracy by removing document background noise.
-    """
-    try:
-        img = cv2.imread(image_path)
-        if img is None:
-            return None
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        )
-        faces = face_cascade.detectMultiScale(
-            gray, scaleFactor=1.05, minNeighbors=3, minSize=(30, 30)
-        )
-        if len(faces) == 0:
-            return None
-        # Take largest detected face
-        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-        # Add 20% padding
-        pad = int(max(w, h) * 0.20)
-        x1 = max(0, x - pad)
-        y1 = max(0, y - pad)
-        x2 = min(img.shape[1], x + w + pad)
-        y2 = min(img.shape[0], y + h + pad)
-        face_crop = img[y1:y2, x1:x2]
-        tmp_crop = os.path.join(
-            app.config["UPLOAD_FOLDER"], f"tmp_face_crop_{uuid.uuid4().hex}.jpg"
-        )
-        cv2.imwrite(tmp_crop, face_crop)
-        return tmp_crop
-    except Exception as e:
-        print(f"Face crop error: {e}")
-        return None
-
-
 def compare_faces_video(doc_path: str, frames: list) -> dict:
     """
     Match face in document against each video frame.
     Returns best score, median score, per-frame results.
-    Crops face from document photo first for better accuracy on ID/passport images.
     """
     if not frames:
         return {
@@ -891,70 +824,29 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
             "error": "No frames to match",
         }
 
-    # Crop just the face from document photo — removes background that hurts distance metrics
-    doc_face_path = crop_face_from_image(doc_path)
-    effective_doc_path = doc_face_path if doc_face_path else doc_path
-    print(
-        f"Face crop from doc: {'success' if doc_face_path else 'fallback to full doc'}"
-    )
-
     per_frame = []
     scores = []
 
     for i, frame in enumerate(frames):
+        # Write frame to temp file for DeepFace
         tmp_frame = os.path.join(
             app.config["UPLOAD_FOLDER"], f"tmp_frame_{uuid.uuid4().hex}.jpg"
         )
         try:
             cv2.imwrite(tmp_frame, frame)
-
-            # Try models best→fastest; stop at first success
-            result = None
-            last_err = None
-            for model_name, thr in [
-                ("Facenet512", 0.30),
-                ("Facenet", 0.40),
-                ("VGG-Face", 0.40),
-            ]:
-                try:
-                    result = DeepFace.verify(
-                        img1_path=effective_doc_path,
-                        img2_path=tmp_frame,
-                        model_name=model_name,
-                        detector_backend="opencv",
-                        enforce_detection=False,
-                        align=True,
-                    )
-                    result["_model"] = model_name
-                    result["_thr"] = thr
-                    break
-                except Exception as e:
-                    last_err = e
-                    continue
-
-            if result is None:
-                raise Exception(str(last_err) if last_err else "All models failed")
-
-            distance = result["distance"]
-            threshold = result.get("threshold") or result["_thr"]
-
-            # Normalised 0-100 similarity:
-            # distance=0 → 100, distance=threshold → 50, beyond threshold → <50 down to 0
-            if distance <= threshold:
-                frame_score = round(100 - (distance / threshold) * 50, 2)
-            else:
-                frame_score = round(max(0.0, 50 - (distance - threshold) * 80), 2)
-
+            result = DeepFace.verify(
+                img1_path=doc_path,
+                img2_path=tmp_frame,
+                model_name="Facenet",
+                enforce_detection=False,
+            )
+            frame_score = round(max(0.0, (1 - result["distance"]) * 100), 2)
             scores.append(frame_score)
             per_frame.append(
                 {
                     "frame": i,
                     "score": frame_score,
-                    "matched": frame_score >= 65,
-                    "distance": round(distance, 4),
-                    "threshold": round(threshold, 4),
-                    "verified": result.get("verified", False),
-                    "model": result.get("_model", ""),
+                    "matched": frame_score >= 75,
                 }
             )
         except Exception as e:
@@ -964,10 +856,6 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
         finally:
             if os.path.exists(tmp_frame):
                 os.remove(tmp_frame)
-
-    # Clean up cropped doc face temp
-    if doc_face_path and os.path.exists(doc_face_path):
-        os.remove(doc_face_path)
 
     if not scores:
         return {
@@ -983,12 +871,14 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
 
     best_score = round(max(scores), 2)
     median_score = round(float(np.median(scores)), 2)
-    frames_matched = sum(1 for s in scores if s >= 65)
-    match = best_score >= 65 and frames_matched >= 1
+    frames_matched = sum(1 for s in scores if s >= 75)
+
+    # Match is confirmed if best score >= 60 AND at least 1 frame matched
+    match = best_score >= 75 and frames_matched >= 1
 
     return {
         "match": match,
-        "score": best_score,
+        "score": best_score,  # primary score used for risk
         "best_score": best_score,
         "median_score": median_score,
         "frames_checked": len(frames),
@@ -1901,15 +1791,26 @@ def create_application():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+def serialize_doc(d):
+    """Stringify ObjectIds in _id and files sub-document, and ISO-format datetimes."""
+    d["_id"] = str(d["_id"])
+    for field in ("created_at", "updated_at", "reviewed_at"):
+        if d.get(field):
+            try:
+                d[field] = d[field].isoformat()
+            except Exception:
+                pass
+    if isinstance(d.get("files"), dict):
+        d["files"] = {k: str(v) for k, v in d["files"].items() if v is not None}
+    return d
+
+
 @app.route("/api/applications/<app_id>", methods=["GET"])
 def get_application(app_id):
     rec = applications_col.find_one({"application_id": app_id})
     if not rec:
         return jsonify({"error": "Not found"}), 404
-    rec["_id"] = str(rec["_id"])
-    for field in ("created_at", "updated_at", "reviewed_at"):
-        if rec.get(field):
-            rec[field] = rec[field].isoformat()
+    serialize_doc(rec)
     return jsonify({"success": True, "application": rec})
 
 
@@ -1926,10 +1827,7 @@ def list_applications():
         applications_col.find(query).sort("created_at", -1).skip(offset).limit(limit)
     )
     for d in docs:
-        d["_id"] = str(d["_id"])
-        for f in ("created_at", "updated_at", "reviewed_at"):
-            if d.get(f):
-                d[f] = d[f].isoformat()
+        serialize_doc(d)
     return jsonify({"success": True, "count": len(docs), "applications": docs})
 
 
