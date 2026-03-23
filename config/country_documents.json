@@ -343,6 +343,51 @@
       ]
     },
     {
+      "code": "LK",
+      "name": "Sri Lanka",
+      "region": "Asia",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Sri Lankan Passport",
+          "description": "Sri Lanka Passport issued by the Department of Immigration and Emigration",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "National Identity Card",
+          "description": "Sri Lanka National Identity Card (NIC) issued by the Department of Registration of Persons",
+          "docType": "national_id"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driving Licence",
+          "description": "Sri Lanka Driving Licence issued by the Department of Motor Traffic",
+          "docType": "drivers_license"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Electricity (CEB/LECO) or water (NWSDB) bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement from a licensed Sri Lankan bank (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "grama_niladhari_letter",
+          "name": "Grama Niladhari Certificate",
+          "description": "Residence certificate issued by the Grama Niladhari officer (less than 3 months old)",
+          "docType": "address"
+        }
+      ]
+    },
+    {
       "code": "DZ",
       "name": "Algeria",
       "region": "Africa",

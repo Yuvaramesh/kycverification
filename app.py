@@ -998,12 +998,11 @@ def compare_faces_video(doc_path: str, frames: list) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  SAUDI ARABIA DOCUMENT VALIDATION  (Gemini AI strict gate)
+#  MULTI-COUNTRY DOCUMENT VALIDATION  (Gemini AI strict gate)
 #
 #  Blocks submission unless the document is BOTH:
-#    • Issued by Saudi Arabia (Kingdom of Saudi Arabia)
-#    • One of the 4 accepted types:
-#        passport | national_id | drivers_license | utility_bill
+#    • Issued by a country present in country_documents.json config
+#    • One of the accepted doc types configured for that country
 #
 #  Called before any DB/GridFS write in create_application().
 #  Returns (is_valid: bool, error_message: str|None, details: dict)
@@ -1024,12 +1023,37 @@ ACCEPTED_DOC_LABELS = {
 }
 
 
-def validate_document_with_ai(image_path: str, claimed_doc_type: str):
+def _get_accepted_doc_types_for_country(country_code: str) -> set:
+    """Return the set of accepted docType values for a given country code from config."""
+    countries = COUNTRY_DOCUMENTS.get("countries", [])
+    country = next((c for c in countries if c["code"] == country_code.upper()), None)
+    if not country:
+        return set()
+    doc_types = set()
+    for doc in country.get("identityDocuments", []) + country.get(
+        "addressDocuments", []
+    ):
+        dt = doc.get("docType", "").strip().lower()
+        if dt == "address":
+            doc_types.add("utility_bill")
+        elif dt:
+            doc_types.add(dt)
+    return doc_types
+
+
+def _get_configured_country_names() -> list:
+    """Return list of country names from the config for prompts / error messages."""
+    return [c["name"] for c in COUNTRY_DOCUMENTS.get("countries", [])]
+
+
+def validate_document_with_ai(
+    image_path: str, claimed_doc_type: str, country_code: str = ""
+):
     """
     Use Gemini to verify:
       1. Is this a real identity document?
-      2. Is it issued by Saudi Arabia?
-      3. Is the type one of: passport, national_id, drivers_license, utility_bill?
+      2. Is it issued by a country present in country_documents.json config?
+      3. Is the doc type one of the accepted types for that country?
     Returns (is_valid, error_message, details_dict).
     """
     if not GEMINI_API_KEY:
@@ -1040,30 +1064,34 @@ def validate_document_with_ai(image_path: str, claimed_doc_type: str):
             {},
         )
 
+    country_code_upper = country_code.upper() if country_code else ""
+    configured_countries = _get_configured_country_names()
+    countries_list_str = ", ".join(configured_countries)
+
     try:
         print(
-            f"[doc-validation] Validating: {image_path}  claimed_type={claimed_doc_type}"
+            f"[doc-validation] Validating: {image_path}  claimed_type={claimed_doc_type}  country={country_code_upper or 'any'}"
         )
         model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
-        prompt = """You are a strict KYC document validator for a Saudi Arabia-only verification system.
+        prompt = f"""You are a strict KYC document validator. Accepted countries: {countries_list_str}.
 
 Examine this image carefully and return ONLY a raw JSON object — no markdown, no code fences.
 
-{
+{{
   "is_document": true or false,
-  "is_saudi_arabia": true or false,
-  "document_type": "one of exactly: passport | national_id | drivers_license | utility_bill | other | none",
   "issuing_country": "the country name printed on this document, or null",
+  "issuing_country_code": "ISO 3166-1 alpha-2 code of the issuing country, or null",
+  "document_type": "one of exactly: passport | national_id | drivers_license | utility_bill | other | none",
   "confidence": "high | medium | low",
   "reason": "one sentence explanation"
-}
+}}
 
 Strict rules:
 - is_document = false for selfies, person photos, screenshots, blank pages
-- is_saudi_arabia = true ONLY if clearly issued by Kingdom of Saudi Arabia (المملكة العربية السعودية)
+- issuing_country_code must be the standard 2-letter ISO code (e.g. GB, US, IN, LK)
 - document_type must be exactly one of the listed values
-- When in doubt → is_saudi_arabia = false"""
+- When in doubt → issuing_country_code = null"""
 
         ext = (image_path.rsplit(".", 1)[-1] or "jpg").lower()
         mime = {
@@ -1083,7 +1111,6 @@ Strict rules:
         text = response.text.strip()
         print(f"[doc-validation] Gemini response: {text[:300]}")
 
-        # Strip markdown fences if model adds them despite instructions
         if text.startswith("```"):
             parts = text.split("```")
             text = parts[1] if len(parts) > 1 else text
@@ -1094,51 +1121,59 @@ Strict rules:
         data = json.loads(text)
 
         is_doc = bool(data.get("is_document", False))
-        is_saudi = bool(data.get("is_saudi_arabia", False))
         doc_type_ai = str(data.get("document_type") or "none").strip().lower()
-        country = str(data.get("issuing_country") or "Unknown")
+        detected_country = str(data.get("issuing_country") or "Unknown")
+        detected_code = str(data.get("issuing_country_code") or "").strip().upper()
         confidence = str(data.get("confidence") or "low")
         reason = str(data.get("reason") or "")
 
         details = {
-            "issuing_country_detected": country,
+            "issuing_country_detected": detected_country,
+            "issuing_country_code_detected": detected_code,
             "document_type_detected": doc_type_ai,
             "confidence": confidence,
             "ai_reason": reason,
         }
 
-        # Check 1 — must be a document
+        # Check 1 — must be a real document
         if not is_doc:
             return (
                 False,
-                "The uploaded image is not an identity document. Please upload your Saudi Arabia passport, national ID, driver's license, or utility bill.",
+                "The uploaded image is not an identity document. Please upload a valid passport, national ID, driver's license, or utility bill.",
                 details,
             )
 
-        # Check 2 — must be Saudi Arabia
-        if not is_saudi:
-            detected_country = (
-                country
-                if country and country != "Unknown"
-                else "a non-Saudi Arabia country"
+        # Check 2 — issuing country must be in our config
+        configured_codes = {c["code"] for c in COUNTRY_DOCUMENTS.get("countries", [])}
+        doc_country_code = detected_code if detected_code else country_code_upper
+        if doc_country_code not in configured_codes:
+            display_country = (
+                detected_country
+                if detected_country and detected_country != "Unknown"
+                else (doc_country_code or "an unsupported country")
             )
             return (
                 False,
-                f"Only Saudi Arabia documents are accepted. The uploaded document appears to be from {detected_country}. Please submit a valid Saudi Arabia document.",
+                f"Documents from {display_country} are not currently accepted. Supported countries: {countries_list_str}.",
                 details,
             )
 
-        # Check 3 — must be one of the 4 accepted types
-        if doc_type_ai not in ACCEPTED_DOC_TYPES:
-            accepted_list = ", ".join(ACCEPTED_DOC_LABELS.values())
+        # Check 3 — doc type must be accepted for that country
+        accepted_types = _get_accepted_doc_types_for_country(doc_country_code)
+        if not accepted_types:
+            accepted_types = ACCEPTED_DOC_TYPES
+        if doc_type_ai not in accepted_types:
+            accepted_labels = ", ".join(
+                ACCEPTED_DOC_LABELS.get(t, t) for t in accepted_types
+            )
             return (
                 False,
-                f'Document type "{doc_type_ai}" is not accepted. Please upload one of: {accepted_list}.',
+                f'Document type "{doc_type_ai}" is not accepted for {detected_country}. Please upload one of: {accepted_labels}.',
                 details,
             )
 
         print(
-            f"[doc-validation] ✓ Valid: {doc_type_ai} from {country} (confidence={confidence})"
+            f"[doc-validation] ✓ Valid: {doc_type_ai} from {detected_country} [{doc_country_code}] (confidence={confidence})"
         )
         return True, None, details
 
@@ -1200,10 +1235,21 @@ def ocr_document(image_path, doc_type):
     try:
         model = genai.GenerativeModel("gemini-2.5-flash-lite")
         prompt = DOC_PROMPTS.get(doc_type, DOC_PROMPTS["national_id"])
+        # Detect correct mime type — PDF is supported natively by Gemini
+        ext = (image_path.rsplit(".", 1)[-1] or "jpg").lower()
+        mime_type = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "webp": "image/webp",
+            "pdf": "application/pdf",
+        }.get(ext, "image/jpeg")
+        print(f"[ocr] Sending {ext.upper()} to Gemini OCR (mime={mime_type})")
+
         with open(image_path, "rb") as f:
             img_bytes = f.read()
         response = model.generate_content(
-            [prompt, {"mime_type": "image/jpeg", "data": img_bytes}]
+            [prompt, {"mime_type": mime_type, "data": img_bytes}]
         )
         text = response.text.strip()
         for fence in ("```json", "```"):
@@ -1596,11 +1642,11 @@ def run_verification(app_id):
     escalation_reasons = []
     if expiry_valid is False:
         escalation_reasons.append(f"doc_expired={expiry.get('expiry_date', 'unknown')}")
-    if risk_score >= 70:
-        escalation_reasons.append(f"risk_score={risk_score} (≥70)")
-    if face_score_val is None or face_score_val < 75:
+    if risk_score > 80:
+        escalation_reasons.append(f"risk_score={risk_score} (>80)")
+    if face_score_val is None or face_score_val <= 5:
         escalation_reasons.append(
-            f"face_match={round(face_score_val, 1) if face_score_val is not None else 'N/A'} (<75)"
+            f"face_match={round(face_score_val, 1) if face_score_val is not None else 'N/A'} (≤5)"
         )
     if live_score_val is None or live_score_val < 30:
         escalation_reasons.append(
@@ -1765,12 +1811,10 @@ def create_application():
       - face matched against document across all frames (best score used)
     """
     try:
-        country_code = request.form.get("country_code", "SA").upper()
+        country_code = request.form.get("country_code", "").upper()
         document_id = request.form.get("document_id", "")
         doc_type = request.form.get("document_type", "passport")
 
-        # Saudi Arabia is the only supported country — skip country/doc validation
-        SAUDI_DOCS = ["passport", "national_id", "drivers_license", "utility_bill"]
         if not doc_type:
             doc_type = "passport"
         if not document_id:
@@ -1796,9 +1840,9 @@ def create_application():
             return jsonify({"success": False, "error": "selfie_video is required"}), 400
 
         # ══════════════════════════════════════════════════════════════════════
-        # STRICT SAUDI DOCUMENT VALIDATION — runs before any DB/GridFS write
+        # MULTI-COUNTRY DOCUMENT VALIDATION — runs before any DB/GridFS write
         # Accepted: passport | national_id | drivers_license | utility_bill
-        # Country:  Saudi Arabia only
+        # Country:  Any country present in country_documents.json config
         # ══════════════════════════════════════════════════════════════════════
         _doc_file = request.files.get("document_front")
         if _doc_file:
@@ -1816,7 +1860,7 @@ def create_application():
                 _doc_file.seek(0)  # reset for GridFS save later
 
                 _is_valid, _err_msg, _details = validate_document_with_ai(
-                    _tmp_path, doc_type
+                    _tmp_path, doc_type, country_code
                 )
             finally:
                 try:
