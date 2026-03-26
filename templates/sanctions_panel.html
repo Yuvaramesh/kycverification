@@ -1,0 +1,941 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sanctions Screening — KYC Admin</title>
+    <style>
+      /* ── Design tokens ── */
+      :root {
+        --bg: #0f1117;
+        --surface: #1a1d27;
+        --surface2: #22263a;
+        --border: #2e3247;
+        --accent: #4f8ef7;
+        --accent2: #7c5cfc;
+        --green: #22c55e;
+        --yellow: #f59e0b;
+        --red: #ef4444;
+        --text: #e4e8f0;
+        --muted: #8892a4;
+        --radius: 10px;
+        --font: "Inter", system-ui, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        min-height: 100vh;
+        padding: 28px 20px;
+      }
+
+      /* ── Layout ── */
+      .page-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 28px;
+      }
+      .page-header .icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+      }
+      .page-header h1 {
+        font-size: 20px;
+        font-weight: 700;
+      }
+      .page-header p {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 2px;
+      }
+
+      .grid2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 768px) {
+        .grid2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      /* ── Cards ── */
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 20px;
+      }
+      .card-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        margin-bottom: 16px;
+      }
+
+      /* ── Form ── */
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+      @media (max-width: 550px) {
+        .form-row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      label {
+        font-size: 12px;
+        color: var(--muted);
+        font-weight: 500;
+        display: block;
+        margin-bottom: 5px;
+      }
+
+      input,
+      select {
+        width: 100%;
+        padding: 9px 12px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        color: var(--text);
+        font-size: 13px;
+        transition: border-color 0.2s;
+      }
+      input:focus,
+      select:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .form-group {
+        margin-bottom: 14px;
+      }
+
+      /* ── Buttons ── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 18px;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: opacity 0.2s;
+      }
+      .btn:hover {
+        opacity: 0.85;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: #fff;
+      }
+      .btn-secondary {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .btn-danger {
+        background: var(--red);
+        color: #fff;
+      }
+      .btn-green {
+        background: var(--green);
+        color: #fff;
+      }
+      .btn-row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+
+      /* ── Dataset coverage chips ── */
+      .coverage {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+      .chip {
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .chip.un {
+        background: #1e3356;
+        color: #7eb2f7;
+        border-color: #2a4d80;
+      }
+      .chip.us {
+        background: #1c2d1c;
+        color: #4ade80;
+        border-color: #2a4a2a;
+      }
+      .chip.eu {
+        background: #1e1e38;
+        color: #a78bfa;
+        border-color: #2e2e5a;
+      }
+      .chip.uk {
+        background: #2d1c1c;
+        color: #f87171;
+        border-color: #4a2a2a;
+      }
+      .chip.au {
+        background: #2d2200;
+        color: #fbbf24;
+        border-color: #4a3800;
+      }
+      .chip.ca {
+        background: #2d1020;
+        color: #fb7185;
+        border-color: #4a1830;
+      }
+      .chip.int {
+        background: #1a1a1a;
+        color: #94a3b8;
+        border-color: #333;
+      }
+
+      /* ── Result panel ── */
+      .result-box {
+        margin-top: 18px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .result-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+      }
+      .status-pill {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+      }
+      .status-clean {
+        background: #14532d;
+        color: #4ade80;
+      }
+      .status-alert {
+        background: #451a03;
+        color: #fb923c;
+      }
+      .status-block {
+        background: #450a0a;
+        color: #fca5a5;
+      }
+      .status-pep {
+        background: #1e1b4b;
+        color: #a5b4fc;
+      }
+
+      .score-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+        overflow: hidden;
+        margin: 12px 16px 0;
+      }
+      .score-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s;
+      }
+
+      .match-list {
+        padding: 12px 16px;
+      }
+      .match-item {
+        padding: 12px;
+        border-radius: 8px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        margin-bottom: 10px;
+      }
+      .match-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+      }
+      .match-name {
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .match-score-badge {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 5px;
+        white-space: nowrap;
+      }
+      .match-meta {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 5px;
+      }
+      .match-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 7px;
+      }
+      .match-tag {
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 20px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        color: var(--muted);
+      }
+      .match-tag.danger {
+        background: #450a0a;
+        color: #fca5a5;
+        border-color: #7f1d1d;
+      }
+      .match-tag.warn {
+        background: #451a03;
+        color: #fb923c;
+        border-color: #7c2d12;
+      }
+      .match-tag.info {
+        background: #0c1a3b;
+        color: #7eb2f7;
+        border-color: #1d3461;
+      }
+
+      .match-link {
+        font-size: 11px;
+        color: var(--accent);
+        text-decoration: none;
+        margin-top: 6px;
+        display: inline-block;
+      }
+      .match-link:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Bulk table ── */
+      .table-wrap {
+        overflow-x: auto;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      th {
+        text-align: left;
+        padding: 9px 12px;
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        border-bottom: 1px solid var(--border);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--border);
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      tr:hover td {
+        background: var(--surface2);
+      }
+
+      /* ── Spinner ── */
+      .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* ── Placeholder ── */
+      .placeholder {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .placeholder .big {
+        font-size: 36px;
+        margin-bottom: 10px;
+      }
+
+      .empty {
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+        padding: 30px;
+      }
+
+      /* ── Mode tabs ── */
+      .tabs {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 18px;
+      }
+      .tab {
+        padding: 7px 16px;
+        border-radius: 7px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: var(--surface2);
+        transition: all 0.2s;
+      }
+      .tab.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
+      /* ── Toast ── */
+      #toast {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 9px;
+        padding: 12px 18px;
+        font-size: 13px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        transform: translateY(80px);
+        opacity: 0;
+        transition: all 0.3s;
+        z-index: 999;
+        max-width: 320px;
+      }
+      #toast.show {
+        transform: none;
+        opacity: 1;
+      }
+      #toast.ok {
+        border-left: 3px solid var(--green);
+      }
+      #toast.err {
+        border-left: 3px solid var(--red);
+      }
+      #toast.warn {
+        border-left: 3px solid var(--yellow);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <div class="icon">🛡️</div>
+      <div>
+        <h1>Sanctions &amp; PEP Screening</h1>
+        <p>Multi-jurisdiction AML / CFT screening powered by OpenSanctions</p>
+      </div>
+    </div>
+
+    <!-- DATASET COVERAGE OVERVIEW -->
+    <div class="card" style="margin-bottom: 20px">
+      <div class="card-title">Dataset Coverage</div>
+      <div class="coverage">
+        <span class="chip un">🇺🇳 UN SC Consolidated</span>
+        <span class="chip us">🇺🇸 OFAC SDN</span>
+        <span class="chip us">🇺🇸 OFAC Consolidated</span>
+        <span class="chip us">🇺🇸 BIS Entity List</span>
+        <span class="chip eu">🇪🇺 EU Financial Sanctions</span>
+        <span class="chip uk">🇬🇧 UK HM Treasury (OFSI)</span>
+        <span class="chip au">🇦🇺 DFAT Consolidated Sanctions</span>
+        <span class="chip au">🇦🇺 Listed Terrorist Orgs (ATO)</span>
+        <span class="chip ca">🇨🇦 Canada SEMA</span>
+        <span class="chip int">🇨🇭 SECO Switzerland</span>
+        <span class="chip int">🌐 Interpol Red Notices</span>
+        <span class="chip int">🌐 World Bank Debarred</span>
+        <span class="chip int">🌐 PEP Database</span>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" onclick="switchTab('manual')">
+        🔍 Manual Screen
+      </div>
+      <div class="tab" onclick="switchTab('app')">📋 By Application</div>
+      <div class="tab" onclick="switchTab('bulk')">⚡ Bulk Screen</div>
+    </div>
+
+    <!-- ══ TAB 1: MANUAL SCREEN ═══════════════════════════════════════════════ -->
+    <div id="tab-manual">
+      <div class="grid2">
+        <!-- Search form -->
+        <div class="card">
+          <div class="card-title">Search Entity</div>
+
+          <div class="form-group">
+            <label>Full Name *</label>
+            <input type="text" id="s-name" placeholder="e.g. Vladimir Petrov" />
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Date of Birth</label>
+              <input type="date" id="s-dob" />
+            </div>
+            <div class="form-group">
+              <label>Nationality (ISO-2)</label>
+              <input
+                type="text"
+                id="s-nat"
+                maxlength="2"
+                placeholder="e.g. RU"
+                style="text-transform: uppercase"
+              />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Passport Number</label>
+              <input type="text" id="s-passport" placeholder="Optional" />
+            </div>
+            <div class="form-group">
+              <label>National ID</label>
+              <input type="text" id="s-id" placeholder="Optional" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Screening Mode</label>
+            <select id="s-mode">
+              <option value="full">Full KYC (Sanctions + PEP)</option>
+              <option value="sanctions">Sanctions Only</option>
+              <option value="peps">PEP Only</option>
+            </select>
+          </div>
+
+          <div class="btn-row">
+            <button
+              class="btn btn-primary"
+              onclick="runManualScreen()"
+              id="btn-screen"
+            >
+              🔍 Screen Now
+            </button>
+            <button class="btn btn-secondary" onclick="clearForm()">
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <!-- Result panel -->
+        <div id="result-panel">
+          <div class="placeholder">
+            <div class="big">🛡️</div>
+            <div>Enter a name and click <strong>Screen Now</strong></div>
+            <div style="margin-top: 6px; font-size: 12px">
+              Checks against UN, OFAC, EU, UK, Australia, Canada &amp; more
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 2: BY APPLICATION ══════════════════════════════════════════════ -->
+    <div id="tab-app" style="display: none">
+      <div class="card">
+        <div class="card-title">Screen by Application ID</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Application ID</label>
+            <input
+              type="text"
+              id="app-id-input"
+              placeholder="e.g. app_abc123"
+            />
+          </div>
+          <div class="form-group" style="align-self: flex-end">
+            <button class="btn btn-primary" onclick="runAppScreen()">
+              🔍 Screen Application
+            </button>
+          </div>
+        </div>
+        <div id="app-result" style="margin-top: 12px"></div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 3: BULK SCREEN ══════════════════════════════════════════════════ -->
+    <div id="tab-bulk" style="display: none">
+      <div class="card">
+        <div class="card-title">Bulk Sanctions Screen</div>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px">
+          Runs sanctions screening on all applications that haven't been checked
+          yet (status: processing / reviewing / pending_onfido). This may take a
+          few minutes.
+        </p>
+
+        <div class="btn-row">
+          <button
+            class="btn btn-primary"
+            onclick="runBulkScreen()"
+            id="btn-bulk"
+          >
+            ⚡ Run Bulk Screen
+          </button>
+        </div>
+
+        <div id="bulk-result" style="margin-top: 20px"></div>
+      </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast"></div>
+
+    <script>
+      // ── State ──────────────────────────────────────────────────────────────────
+      const API = ""; // same origin
+
+      // ── Tab switching ──────────────────────────────────────────────────────────
+      function switchTab(name) {
+        ["manual", "app", "bulk"].forEach((t) => {
+          document.getElementById("tab-" + t).style.display =
+            t === name ? "" : "none";
+          document
+            .querySelectorAll(".tab")
+            [
+              ["manual", "app", "bulk"].indexOf(t)
+            ].classList.toggle("active", t === name);
+        });
+      }
+
+      // ── Toast ──────────────────────────────────────────────────────────────────
+      function toast(msg, type = "ok") {
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.className = "show " + type;
+        clearTimeout(el._t);
+        el._t = setTimeout(() => (el.className = ""), 3500);
+      }
+
+      // ── Score colour ───────────────────────────────────────────────────────────
+      function scoreColor(score) {
+        if (score >= 0.9) return "#ef4444";
+        if (score >= 0.7) return "#f59e0b";
+        if (score >= 0.5) return "#fb923c";
+        return "#22c55e";
+      }
+
+      function scoreClass(match) {
+        const score = match.score || 0;
+        if (score >= 0.9) return "status-block";
+        if (score >= 0.7) return "status-alert";
+        return "status-clean";
+      }
+
+      // ── Render matches ─────────────────────────────────────────────────────────
+      function renderMatches(matches) {
+        if (!matches || !matches.length) {
+          return '<div class="empty">✅ No matches found in any dataset</div>';
+        }
+        return matches
+          .map((m) => {
+            const color = scoreColor(m.score);
+            const pct = Math.round(m.score * 100);
+            const topics = (m.topics || [])
+              .map(
+                (t) =>
+                  `<span class="match-tag ${t.includes("sanction") ? "danger" : t.includes("pep") ? "warn" : "info"}">${t}</span>`,
+              )
+              .join("");
+            const datasets = (m.datasets || [])
+              .slice(0, 4)
+              .map((d) => `<span class="match-tag">${d}</span>`)
+              .join("");
+            return `
+      <div class="match-item">
+        <div class="match-top">
+          <div class="match-name">${escHtml(m.name)}</div>
+          <span class="match-score-badge" style="background:${color}22;color:${color};border:1px solid ${color}44;">
+            ${pct}% match
+          </span>
+        </div>
+        <div class="match-meta">
+          ${m.schema ? `<strong>${m.schema}</strong> · ` : ""}
+          ${m.nationality && m.nationality.length ? "Nationality: " + m.nationality.join(", ") + " · " : ""}
+          ${m.birth_date && m.birth_date.length ? "DOB: " + m.birth_date[0] + " · " : ""}
+          ${m.aliases && m.aliases.length ? "Aliases: " + m.aliases.slice(0, 3).join(", ") : ""}
+        </div>
+        <div class="match-tags">${topics}${datasets}</div>
+        ${m.entity_url ? `<a class="match-link" href="${m.entity_url}" target="_blank">View on OpenSanctions ↗</a>` : ""}
+      </div>
+    `;
+          })
+          .join("");
+      }
+
+      // ── Render full result ─────────────────────────────────────────────────────
+      function renderResult(data, container) {
+        const isFull = !!data.sanctions_result;
+        let html = "";
+
+        // If full KYC (sanctions + pep) render two sections
+        if (isFull) {
+          const sr = data.sanctions_result || {};
+          const pr = data.pep_result || {};
+          html =
+            buildResultSection("⛔ Sanctions Check", sr) +
+            buildResultSection("🏛️ PEP Check", pr, true);
+        } else {
+          html = buildResultSection("🔍 Screening Result", data);
+        }
+
+        container.innerHTML = html;
+      }
+
+      function buildResultSection(title, result, isPep = false) {
+        const score = result.score || 0;
+        const pct = Math.round(score * 100);
+        const color = scoreColor(score);
+
+        let pillClass = "status-clean",
+          pillLabel = "✅ CLEAR";
+        if (result.block) {
+          pillClass = "status-block";
+          pillLabel = "🚫 BLOCK";
+        } else if (result.hit) {
+          pillClass = isPep ? "status-pep" : "status-alert";
+          pillLabel = isPep ? "⚠️ PEP HIT" : "⚠️ ALERT";
+        }
+
+        const datasets = (result.datasets_checked || [])
+          .map((d) => `<span class="chip">${d}</span>`)
+          .join("");
+
+        const matches = renderMatches(result.matches || []);
+
+        return `
+    <div class="result-box" style="margin-bottom:16px;">
+      <div class="result-header">
+        <strong style="font-size:13px;">${title}</strong>
+        <span class="status-pill ${pillClass}">${pillLabel}</span>
+      </div>
+      <div class="score-bar">
+        <div class="score-fill" style="width:${pct}%;background:${color};"></div>
+      </div>
+      <div style="padding:8px 16px;font-size:12px;color:var(--muted);">
+        Confidence score: <strong style="color:${color}">${pct}%</strong>
+        &nbsp;·&nbsp; ${result.screened_at ? new Date(result.screened_at).toLocaleString() : ""}
+      </div>
+      ${datasets ? `<div style="padding:0 16px 10px;">${datasets}</div>` : ""}
+      <div class="match-list">${matches}</div>
+    </div>
+  `;
+      }
+
+      function escHtml(s) {
+        return String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      // ── Manual Screen ──────────────────────────────────────────────────────────
+      async function runManualScreen() {
+        const name = document.getElementById("s-name").value.trim();
+        const dob = document.getElementById("s-dob").value;
+        const nat = document.getElementById("s-nat").value.trim().toUpperCase();
+        const passport = document.getElementById("s-passport").value.trim();
+        const idNum = document.getElementById("s-id").value.trim();
+        const mode = document.getElementById("s-mode").value;
+
+        if (!name) {
+          toast("Please enter a name", "err");
+          return;
+        }
+
+        const btn = document.getElementById("btn-screen");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Screening…';
+
+        const panel = document.getElementById("result-panel");
+        panel.innerHTML =
+          '<div class="placeholder"><div class="big"><span class="spinner" style="width:32px;height:32px;border-width:3px;"></span></div><div style="margin-top:14px;">Checking against international watchlists…</div></div>';
+
+        try {
+          const resp = await fetch(`${API}/api/sanctions/screen`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name,
+              birth_date: dob || undefined,
+              nationality: nat || undefined,
+              passport_number: passport || undefined,
+              id_number: idNum || undefined,
+              mode,
+            }),
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Server error");
+
+          renderResult(data, panel);
+
+          const hit = data.hit || data.block;
+          toast(
+            hit
+              ? `⚠️ Potential match found (score ${Math.round((data.score || 0) * 100)}%)`
+              : "✅ No matches found — clear",
+            hit ? "warn" : "ok",
+          );
+        } catch (e) {
+          panel.innerHTML = `<div class="placeholder"><div class="big">⚠️</div><div>${e.message}</div></div>`;
+          toast(e.message, "err");
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = "🔍 Screen Now";
+        }
+      }
+
+      function clearForm() {
+        ["s-name", "s-dob", "s-nat", "s-passport", "s-id"].forEach(
+          (id) => (document.getElementById(id).value = ""),
+        );
+        document.getElementById("s-mode").value = "full";
+        document.getElementById("result-panel").innerHTML = `
+    <div class="placeholder">
+      <div class="big">🛡️</div>
+      <div>Enter a name and click <strong>Screen Now</strong></div>
+    </div>`;
+      }
+
+      // ── App Screen ─────────────────────────────────────────────────────────────
+      async function runAppScreen() {
+        const appId = document.getElementById("app-id-input").value.trim();
+        if (!appId) {
+          toast("Enter an application ID", "err");
+          return;
+        }
+
+        const container = document.getElementById("app-result");
+        container.innerHTML =
+          '<div class="placeholder"><span class="spinner" style="width:24px;height:24px;border-width:2px;"></span> Screening…</div>';
+
+        try {
+          const resp = await fetch(
+            `${API}/api/applications/${appId}/sanctions-check`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: "{}",
+            },
+          );
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Server error");
+          renderResult(data, container);
+          toast(
+            data.hit || data.block ? "⚠️ Potential hit found" : "✅ Clear",
+            data.hit || data.block ? "warn" : "ok",
+          );
+        } catch (e) {
+          container.innerHTML = `<div class="empty">⚠️ ${e.message}</div>`;
+          toast(e.message, "err");
+        }
+      }
+
+      // ── Bulk Screen ────────────────────────────────────────────────────────────
+      async function runBulkScreen() {
+        const btn = document.getElementById("btn-bulk");
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner"></span> Running bulk screen…';
+        const res = document.getElementById("bulk-result");
+        res.innerHTML = "";
+
+        try {
+          const resp = await fetch(`${API}/api/sanctions/bulk-screen`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          });
+          const data = await resp.json();
+          if (!resp.ok) throw new Error(data.error || "Server error");
+
+          const s = data.summary || {};
+          res.innerHTML = `
+      <div class="grid2">
+        <div class="card" style="border-color:var(--border)">
+          <div class="card-title">Bulk Screen Summary</div>
+          <table>
+            <tr><td>Total screened</td><td><strong>${s.total || 0}</strong></td></tr>
+            <tr><td>✅ Clean</td><td style="color:var(--green)"><strong>${s.clean || 0}</strong></td></tr>
+            <tr><td>⚠️ Alerts (review)</td><td style="color:var(--yellow)"><strong>${s.hits || 0}</strong></td></tr>
+            <tr><td>🚫 Blocks (auto-rejected)</td><td style="color:var(--red)"><strong>${s.blocks || 0}</strong></td></tr>
+            <tr><td>❌ Errors</td><td style="color:var(--muted)"><strong>${s.errors || 0}</strong></td></tr>
+          </table>
+        </div>
+      </div>`;
+          toast(
+            `Bulk screen complete — ${s.blocks || 0} block(s), ${s.hits || 0} alert(s)`,
+            (s.blocks || 0) > 0 ? "err" : (s.hits || 0) > 0 ? "warn" : "ok",
+          );
+        } catch (e) {
+          res.innerHTML = `<div class="empty">⚠️ ${e.message}</div>`;
+          toast(e.message, "err");
+        } finally {
+          btn.disabled = false;
+          btn.innerHTML = "⚡ Run Bulk Screen";
+        }
+      }
+
+      // Enter key in manual form
+      document.addEventListener("keydown", (e) => {
+        if (
+          e.key === "Enter" &&
+          document.getElementById("tab-manual").style.display !== "none"
+        ) {
+          runManualScreen();
+        }
+      });
+    </script>
+  </body>
+</html>

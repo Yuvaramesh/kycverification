@@ -99,6 +99,16 @@ ONFIDO_API_URL = os.getenv("ONFIDO_API_URL")
 ONFIDO_WORKFLOW_ID = os.getenv("ONFIDO_WORKFLOW_ID")
 print("✓ Onfido configured")
 
+# ── OpenSanctions ───────────────────────────────────────────────────────────
+OPENSANCTIONS_API_KEY = os.getenv("OPENSANCTIONS_API_KEY", "")
+OPENSANCTIONS_BASE = "https://api.opensanctions.org"
+SANCTIONS_SCORE_ALERT = 0.70  # flag for admin review
+SANCTIONS_SCORE_BLOCK = 0.90  # auto-reject
+if OPENSANCTIONS_API_KEY:
+    print("✓ OpenSanctions configured")
+else:
+    print("⚠ OPENSANCTIONS_API_KEY not set — sanctions screening will be skipped")
+
 os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
 # ── Admin ──────────────────────────────────────────────────────────────────────
@@ -1502,6 +1512,236 @@ def send_to_onfido(app_id, ocr_name):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+#  SANCTIONS & PEP SCREENING  (OpenSanctions — auto-triggered post-verification)
+#
+#  Endpoints:
+#    POST /match/<dataset>   — fuzzy entity matching  (primary)
+#    GET  /search/<dataset>  — full-text fallback
+#
+#  Datasets checked (all in one /match/sanctions + /match/peps call):
+#    UN SC Consolidated · OFAC SDN · OFAC Consolidated · BIS Entity List
+#    EU Financial Sanctions · UK OFSI · Australia DFAT · AU Terrorist Orgs
+#    Canada SEMA · SECO Switzerland · Interpol · World Bank · Global PEPs
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _normalise_dob(raw: str) -> str:
+    """Convert any OCR date format → YYYY-MM-DD for OpenSanctions API."""
+    if not raw:
+        return ""
+    for fmt in (
+        "%d/%m/%Y",
+        "%m/%d/%Y",
+        "%Y-%m-%d",
+        "%d-%m-%Y",
+        "%d.%m.%Y",
+        "%d %b %Y",
+        "%d %B %Y",
+        "%b %d, %Y",
+    ):
+        try:
+            return datetime.strptime(raw.strip(), fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return ""
+
+
+def _sanctions_empty(method: str, reason: str = "") -> dict:
+    return {
+        "hit": False,
+        "block": False,
+        "score": 0.0,
+        "method": method,
+        "matches": [],
+        "pep_hit": False,
+        "pep_score": 0.0,
+        "pep_matches": [],
+        "datasets_checked": [],
+        "error": reason,
+        "screened_at": datetime.utcnow().isoformat(),
+        "query": {},
+    }
+
+
+def _os_match(
+    name, birth_date, nationality, doc_number, dataset, headers, app_id
+) -> dict:
+    """
+    POST https://api.opensanctions.org/match/<dataset>
+    Uses the FollowTheMoney Person schema for precise entity matching.
+    """
+    url = f"{OPENSANCTIONS_BASE}/match/{dataset}"
+    properties: dict = {"name": [name]}
+    if birth_date:
+        properties["birthDate"] = [birth_date]
+    if nationality:
+        properties["nationality"] = [nationality]
+    if doc_number:
+        properties["passportNumber"] = [doc_number]
+        properties["idNumber"] = [doc_number]
+
+    payload = {"queries": {"q1": {"schema": "Person", "properties": properties}}}
+    try:
+        resp = req.post(url, json=payload, headers=headers, timeout=15)
+        resp.raise_for_status()
+        results = resp.json().get("responses", {}).get("q1", {}).get("results", [])
+        return {"results": results, "error": None}
+    except req.exceptions.HTTPError as e:
+        print(f"[sanctions][{app_id}] /match/{dataset} HTTP error: {e}")
+        return {"results": [], "error": str(e)}
+    except Exception as e:
+        print(f"[sanctions][{app_id}] /match/{dataset} error: {e}")
+        return {"results": [], "error": str(e)}
+
+
+def _os_search(name, dataset, headers, app_id) -> dict:
+    """
+    GET https://api.opensanctions.org/search/<dataset>?q=<name>
+    Full-text fallback when /match returns zero results.
+    """
+    url = f"{OPENSANCTIONS_BASE}/search/{dataset}"
+    try:
+        resp = req.get(
+            url, params={"q": name, "limit": 10}, headers=headers, timeout=15
+        )
+        resp.raise_for_status()
+        return {"results": resp.json().get("results", []), "error": None}
+    except Exception as e:
+        print(f"[sanctions][{app_id}] /search/{dataset} error: {e}")
+        return {"results": [], "error": str(e)}
+
+
+def _parse_os_results(raw_results: list) -> dict:
+    """Extract top score and build clean match list from raw API results."""
+    top_score = 0.0
+    matches = []
+    for entity in raw_results:
+        score = float(entity.get("score", 0))
+        if score < 0.40:
+            continue
+        top_score = max(top_score, score)
+        props = entity.get("properties", {})
+        matches.append(
+            {
+                "id": entity.get("id"),
+                "name": (props.get("name") or [""])[0],
+                "aliases": props.get("alias", [])[:5],
+                "score": round(score, 3),
+                "schema": entity.get("schema"),
+                "topics": entity.get("topics", []),
+                "datasets": entity.get("datasets", []),
+                "nationality": props.get("nationality", []),
+                "birth_date": props.get("birthDate", []),
+                "entity_url": f"https://www.opensanctions.org/entities/{entity.get('id')}/",
+            }
+        )
+    matches.sort(key=lambda x: -x["score"])
+    return {"top_score": top_score, "matches": matches}
+
+
+def run_sanctions_screening(
+    app_id: str, ocr_data: dict, country_code: str = ""
+) -> dict:
+    """
+    Screen the applicant (extracted from OCR) against all international
+    sanctions lists and PEP databases via OpenSanctions.
+
+    Called automatically inside run_verification() as Step 8.5.
+
+    Flow:
+      1. POST /match/sanctions  — primary fuzzy match against all sanction lists
+      2. POST /match/peps       — PEP check in parallel
+      3. GET  /search/sanctions — fallback if /match returns 0 results
+
+    Returns dict with hit, block, score, matches, pep_hit, pep_score, pep_matches.
+    """
+    if not OPENSANCTIONS_API_KEY:
+        print(f"[sanctions][{app_id}] Skipped — OPENSANCTIONS_API_KEY not configured")
+        return _sanctions_empty("skipped", "API key not configured")
+
+    name = (ocr_data.get("full_name") or "").strip()
+    if not name:
+        print(f"[sanctions][{app_id}] Skipped — no name in OCR data")
+        return _sanctions_empty("skipped", "No name available from OCR")
+
+    nationality = (ocr_data.get("nationality") or country_code or "").strip()
+    birth_date = _normalise_dob(ocr_data.get("date_of_birth") or "")
+    doc_number = (ocr_data.get("document_number") or "").strip()
+
+    print(
+        f"[sanctions][{app_id}] Screening → name='{name}' dob='{birth_date}' "
+        f"nationality='{nationality}' doc='{doc_number}'"
+    )
+
+    headers = {
+        "Authorization": f"ApiKey {OPENSANCTIONS_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    # ── 1. Sanctions match ────────────────────────────────────────────────────
+    s_raw = _os_match(
+        name, birth_date, nationality, doc_number, "sanctions", headers, app_id
+    )
+
+    # ── 2. PEP match ──────────────────────────────────────────────────────────
+    p_raw = _os_match(name, birth_date, nationality, "", "peps", headers, app_id)
+
+    # ── 3. Search fallback ────────────────────────────────────────────────────
+    method = "match"
+    if not s_raw["results"]:
+        print(f"[sanctions][{app_id}] /match returned 0 — trying /search fallback")
+        s_raw = _os_search(name, "sanctions", headers, app_id)
+        method = "search_fallback"
+
+    parsed_s = _parse_os_results(s_raw.get("results", []))
+    parsed_p = _parse_os_results(p_raw.get("results", []))
+
+    top_s = parsed_s["top_score"]
+    top_p = parsed_p["top_score"]
+
+    result = {
+        "hit": top_s >= SANCTIONS_SCORE_ALERT,
+        "block": top_s >= SANCTIONS_SCORE_BLOCK,
+        "score": round(top_s, 3),
+        "method": method,
+        "matches": parsed_s["matches"],
+        "pep_hit": top_p >= SANCTIONS_SCORE_ALERT,
+        "pep_score": round(top_p, 3),
+        "pep_matches": parsed_p["matches"],
+        "datasets_checked": [
+            "UN Security Council Consolidated",
+            "OFAC SDN + Consolidated",
+            "BIS Entity List",
+            "EU Financial Sanctions",
+            "UK HM Treasury (OFSI)",
+            "Australia DFAT Consolidated",
+            "Australia Listed Terrorist Orgs",
+            "Canada SEMA",
+            "SECO Switzerland",
+            "Interpol Red Notices",
+            "World Bank Debarred",
+            "Global PEP Database",
+        ],
+        "screened_at": datetime.utcnow().isoformat(),
+        "error": s_raw.get("error") or p_raw.get("error"),
+        "query": {"name": name, "birth_date": birth_date, "nationality": nationality},
+    }
+
+    flag = (
+        "🚫 BLOCK" if result["block"] else ("⚠  HIT" if result["hit"] else "✅ CLEAR")
+    )
+    pflag = "⚠  PEP" if result["pep_hit"] else "✅ clear"
+    print(
+        f"[sanctions][{app_id}] {flag} score={top_s:.3f} "
+        f"| {pflag} pep={top_p:.3f} "
+        f"| sanctions_matches={len(parsed_s['matches'])} "
+        f"pep_matches={len(parsed_p['matches'])}"
+    )
+    return result
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 #  VERIFICATION PIPELINE  (video-based liveness + face matching)
 #
 #  Step 1  OCR document front
@@ -1512,6 +1752,7 @@ def send_to_onfido(app_id, ocr_name):
 #  Step 6  Face match: doc photo vs each video frame (best score wins)
 #  Step 7  Risk score
 #  Step 8  Route: internal approve OR Onfido escalate
+#  Step 8.5 Sanctions & PEP screening (OpenSanctions)
 # ══════════════════════════════════════════════════════════════════════════════
 
 
@@ -1669,6 +1910,35 @@ def run_verification(app_id):
         }
         status = "pending_onfido"
 
+    # ── Step 8.5: Sanctions & PEP Screening ──────────────────────────────────
+    # Runs against OpenSanctions using OCR-extracted name/dob/nationality.
+    # A BLOCK overrides any previous "approved" status → auto-reject.
+    # A HIT or PEP escalates to "reviewing" for manual admin check.
+    sanctions = run_sanctions_screening(
+        app_id, ocr_data, record.get("country_code", "")
+    )
+
+    if sanctions.get("block"):
+        # Hard block — override status regardless of face/liveness scores
+        status = "rejected"
+        rejection_reason = (
+            f"Sanctions screening BLOCK — score={sanctions['score']:.2f} "
+            f"matched on {sanctions['screened_at']}"
+        )
+        verification_method = "sanctions_auto_reject"
+        print(f"[{app_id}] 🚫 SANCTIONS BLOCK — status overridden to rejected")
+
+    elif sanctions.get("hit") and status == "approved":
+        # Soft hit — send to manual review
+        status = "reviewing"
+        print(f"[{app_id}] ⚠  SANCTIONS HIT — escalating to manual review")
+
+    if sanctions.get("pep_hit") and status == "approved":
+        # PEP found — always flag for review even if sanctions clear
+        status = "reviewing"
+        print(f"[{app_id}] ⚠  PEP HIT — escalating to manual review")
+
+    # ── Build final DB update ─────────────────────────────────────────────────
     update = {
         "verification": {
             "risk_score": risk_score,
@@ -1681,6 +1951,7 @@ def run_verification(app_id):
             "liveness": live_result,
             "video_frames_analyzed": len(video_frames),
         },
+        "sanctions_screening": sanctions,
         "status": status,
         "updated_at": datetime.utcnow(),
     }
@@ -1716,6 +1987,11 @@ def run_verification(app_id):
                 "escalation_reasons": (
                     onfido_data.get("escalation_reasons", []) if onfido_data else []
                 ),
+                "sanctions_hit": sanctions.get("hit"),
+                "sanctions_block": sanctions.get("block"),
+                "sanctions_score": sanctions.get("score"),
+                "pep_hit": sanctions.get("pep_hit"),
+                "pep_score": sanctions.get("pep_score"),
             }
         ),
     )
@@ -1724,6 +2000,9 @@ def run_verification(app_id):
         f"[{app_id}] risk={risk_score} | fake={fake_result['is_fake']} "
         f"| face_best={face_result.get('score')} ({face_result.get('frames_matched')}/{face_result.get('frames_checked')} frames)"
         f"| live={live_result.get('score')} | expiry_valid={expiry_valid} "
+        f"| sanctions={sanctions.get('score', 0):.3f}"
+        f"({'BLOCK' if sanctions.get('block') else 'HIT' if sanctions.get('hit') else 'clear'}) "
+        f"| pep={'HIT' if sanctions.get('pep_hit') else 'clear'} "
         f"| method={verification_method} | status={status}"
     )
 

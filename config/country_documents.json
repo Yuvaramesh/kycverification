@@ -419,6 +419,69 @@
           "docType": "address"
         }
       ]
+    },
+    {
+      "code": "SA",
+      "name": "Saudi Arabia",
+      "region": "Middle East",
+      "identityDocuments": [
+        {
+          "id": "passport",
+          "name": "Saudi Passport",
+          "description": "Saudi Arabian Passport issued by the Ministry of Interior (Jawaz al-Safar)",
+          "docType": "passport"
+        },
+        {
+          "id": "national_id",
+          "name": "National ID Card",
+          "description": "Saudi National ID Card (Huwiyyah Wataniyyah) issued by the General Directorate of Civil Status — for Saudi nationals only",
+          "docType": "national_id"
+        },
+        {
+          "id": "iqama",
+          "name": "Iqama (Residence Permit)",
+          "description": "Iqama residence permit issued by the General Directorate of Passports — for expatriate residents",
+          "docType": "national_id"
+        },
+        {
+          "id": "drivers_license",
+          "name": "Driving License",
+          "description": "Saudi Driving License issued by the General Directorate of Traffic (Muroor)",
+          "docType": "drivers_license"
+        },
+        {
+          "id": "gcc_id",
+          "name": "GCC National ID",
+          "description": "GCC National Identity Card — accepted for citizens of other Gulf Cooperation Council states",
+          "docType": "national_id"
+        }
+      ],
+      "addressDocuments": [
+        {
+          "id": "utility_bill",
+          "name": "Utility Bill",
+          "description": "Saudi Electricity Company (SEC) or MARAFIQ water/power bill (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "bank_statement",
+          "name": "Bank Statement",
+          "description": "Bank statement from a Saudi Central Bank (SAMA) licensed bank (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "absher_address",
+          "name": "Absher / National Address Certificate",
+          "description": "Registered national address certificate from the Absher platform or Saudi Post (SPL) (less than 3 months old)",
+          "docType": "address"
+        },
+        {
+          "id": "tenancy_contract",
+          "name": "Ejar Tenancy Contract",
+          "description": "Registered tenancy contract via the Ejar platform, authenticated by the Ministry of Housing (less than 12 months old)",
+          "docType": "address"
+        }
+      ]
     }
   ]
 }
