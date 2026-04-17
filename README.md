@@ -2,7 +2,7 @@
 
 ### Main Branch has the initial codefiles
 
-### Internal verification implemented and is in the branch "implemente_internal_verification"
+### Internal verification implemented and is in the branch "implemented_internal_verification"
 
 ### Verification narrow down Only for Saudi Arabia under branch "KYC_for_SA"
 
