@@ -122,14 +122,21 @@ GOOGLE_REDIRECT_URI = os.getenv(
     "GOOGLE_REDIRECT_URI", "http://localhost:5003/api/auth/google/callback"
 )
 
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  AUTH HELPERS
 # ══════════════════════════════════════════════════════════════════════════════
+def _has_valid_api_key():
+    api_key = request.headers.get("X-Api-Key")
+    service_key = os.environ.get("SERVICE_API_KEY")
+    return api_key and service_key and api_key == service_key
 
 
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        if _has_valid_api_key():  # ← green line
+            return f(*args, **kwargs)  # ← green line
         if not session.get("user_id"):
             return jsonify({"error": "Unauthorized", "redirect": "/login.html"}), 401
         return f(*args, **kwargs)
@@ -140,6 +147,8 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
+        if _has_valid_api_key():  # ← green line
+            return f(*args, **kwargs)  # ← green line
         if not session.get("user_id"):
             return jsonify({"error": "Unauthorized", "redirect": "/login.html"}), 401
         if session.get("role") != "admin":
@@ -2444,6 +2453,388 @@ def poll_onfido_result(app_id):
         return jsonify({"success": False, "error": str(e)}), 500
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  SANCTIONS & PEP SCREENING  — STANDALONE ENDPOINTS
+#
+#  Three new endpoints for direct / on-demand screening:
+#
+#  POST /api/sanctions/screen
+#       Ad-hoc screen any name+dob+nationality without a KYC application.
+#       Body: { "name": "...", "date_of_birth": "...", "nationality": "...",
+#               "document_number": "..." }
+#       Returns full sanctions + PEP result.
+#
+#  GET  /api/applications/<app_id>/sanctions
+#       Return the stored sanctions result for an existing application.
+#       Admin only.
+#
+#  POST /api/applications/<app_id>/sanctions/rescreen
+#       Re-run sanctions screening on an existing application using its
+#       stored OCR data (e.g. after a list update).
+#       Admin only. Updates the DB record and audit log.
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@app.route("/api/sanctions/screen", methods=["POST"])
+@admin_required
+def sanctions_screen_adhoc():
+    """
+    Ad-hoc sanctions + PEP screen for any person.
+    Does NOT require a KYC application — useful for quick one-off checks.
+
+    Request body (JSON):
+        name            str  required — full name to screen
+        date_of_birth   str  optional — any common date format
+        nationality     str  optional — country name or ISO code
+        document_number str  optional — passport / ID number
+
+    Returns:
+        sanctions_result  dict  — full OpenSanctions response
+        pep_result        dict  — PEP-specific result
+        summary           dict  — verdict: CLEAR | HIT | BLOCK
+    """
+    if not OPENSANCTIONS_API_KEY:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "OpenSanctions API key not configured. Set OPENSANCTIONS_API_KEY in .env",
+                }
+            ),
+            503,
+        )
+
+    data = request.get_json() or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"success": False, "error": "name is required"}), 400
+
+    date_of_birth = (data.get("date_of_birth") or "").strip()
+    nationality = (data.get("nationality") or "").strip()
+    document_number = (data.get("document_number") or "").strip()
+
+    birth_date_normalised = _normalise_dob(date_of_birth)
+
+    headers = {
+        "Authorization": f"ApiKey {OPENSANCTIONS_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+    }
+
+    ref_id = f"adhoc_{uuid.uuid4().hex[:8]}"
+
+    # ── 1. Sanctions match ────────────────────────────────────────────────
+    s_raw = _os_match(
+        name,
+        birth_date_normalised,
+        nationality,
+        document_number,
+        "sanctions",
+        headers,
+        ref_id,
+    )
+
+    # ── 2. PEP match ──────────────────────────────────────────────────────
+    p_raw = _os_match(
+        name, birth_date_normalised, nationality, "", "peps", headers, ref_id
+    )
+
+    # ── 3. Fallback search if /match returned nothing ─────────────────────
+    method = "match"
+    if not s_raw["results"]:
+        s_raw = _os_search(name, "sanctions", headers, ref_id)
+        method = "search_fallback"
+
+    parsed_s = _parse_os_results(s_raw.get("results", []))
+    parsed_p = _parse_os_results(p_raw.get("results", []))
+
+    top_s = parsed_s["top_score"]
+    top_p = parsed_p["top_score"]
+
+    # ── Verdict ───────────────────────────────────────────────────────────
+    # Build matched fields string — reused across all verdict reasons
+    matched_fields = []
+    if name:
+        matched_fields.append(f"name='{name}'")
+    if birth_date_normalised:
+        matched_fields.append(f"dob='{birth_date_normalised}'")
+    if nationality:
+        matched_fields.append(f"nationality='{nationality}'")
+    if document_number:
+        matched_fields.append(f"id='{document_number}'")
+    matched_str = ", ".join(matched_fields) if matched_fields else "provided details"
+
+    if top_s >= SANCTIONS_SCORE_BLOCK:
+        verdict = "BLOCK"
+        verdict_reason = (
+            f"Blocked: Entity ({matched_str}) matched international sanctions list "
+            f"with score {top_s:.2f} (threshold ≥ {SANCTIONS_SCORE_BLOCK}). "
+            f"Found in {len(parsed_s['matches'])} sanctions record(s)."
+        )
+    elif top_s >= SANCTIONS_SCORE_ALERT:
+        verdict = "HIT"
+        verdict_reason = (
+            f"Sanctions hit: Entity ({matched_str}) partially matched sanctions list "
+            f"with score {top_s:.2f} (threshold ≥ {SANCTIONS_SCORE_ALERT}). "
+            f"Found in {len(parsed_s['matches'])} record(s) — flagged for manual review."
+        )
+    elif top_p >= SANCTIONS_SCORE_ALERT:
+        verdict = "PEP_HIT"
+        verdict_reason = (
+            f"PEP hit: Entity ({matched_str}) matched Politically Exposed Person database "
+            f"with score {top_p:.2f} (threshold ≥ {SANCTIONS_SCORE_ALERT}). "
+            f"Found in {len(parsed_p['matches'])} PEP record(s) — enhanced due diligence required."
+        )
+    else:
+        verdict = "CLEAR"
+        verdict_reason = (
+            f"Clear: No sanctions or PEP matches found for ({matched_str})."
+        )
+    return jsonify(
+        {
+            "success": True,
+            "ref_id": ref_id,
+            "query": {
+                "name": name,
+                "date_of_birth": date_of_birth,
+                "date_of_birth_normalised": birth_date_normalised,
+                "nationality": nationality,
+                "document_number": document_number,
+            },
+            "summary": {
+                "verdict": verdict,
+                "verdict_reason": verdict_reason,
+                "sanctions_score": round(top_s, 3),
+                "sanctions_hit": top_s >= SANCTIONS_SCORE_ALERT,
+                "sanctions_block": top_s >= SANCTIONS_SCORE_BLOCK,
+                "pep_hit": top_p >= SANCTIONS_SCORE_ALERT,
+                "pep_score": round(top_p, 3),
+                "method": method,
+                "screened_at": datetime.utcnow().isoformat(),
+            },
+            "sanctions_matches": parsed_s["matches"],
+            "pep_matches": parsed_p["matches"],
+            "datasets_checked": [
+                "UN Security Council Consolidated",
+                "OFAC SDN + Consolidated",
+                "BIS Entity List",
+                "EU Financial Sanctions",
+                "UK HM Treasury (OFSI)",
+                "Australia DFAT Consolidated",
+                "Australia Listed Terrorist Orgs",
+                "Canada SEMA",
+                "SECO Switzerland",
+                "Interpol Red Notices",
+                "World Bank Debarred",
+                "Global PEP Database",
+            ],
+        }
+    )
+
+
+@app.route("/api/applications/<app_id>/sanctions", methods=["GET"])
+@admin_required
+def get_application_sanctions(app_id):
+    """
+    Return the stored sanctions + PEP screening result for an existing
+    application. Does NOT re-run the screen — use /rescreen for that.
+
+    Returns 404 if the application does not exist.
+    Returns the sanctions_screening subdocument plus a human-readable summary.
+    """
+    rec = applications_col.find_one({"application_id": app_id})
+    if not rec:
+        return jsonify({"success": False, "error": "Application not found"}), 404
+
+    sanctions = rec.get("sanctions_screening")
+    ocr = rec.get("ocr_data") or {}
+
+    if not sanctions:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "application_id": app_id,
+                    "error": "Sanctions screening has not been run for this application yet. "
+                    "Submit the application first or use /rescreen.",
+                }
+            ),
+            404,
+        )
+
+    # Build a quick verdict label from stored data
+    if sanctions.get("block"):
+        verdict = "BLOCK"
+    elif sanctions.get("hit"):
+        verdict = "HIT"
+    elif sanctions.get("pep_hit"):
+        verdict = "PEP_HIT"
+    else:
+        verdict = "CLEAR"
+
+    return jsonify(
+        {
+            "success": True,
+            "application_id": app_id,
+            "applicant_name": ocr.get("full_name"),
+            "summary": {
+                "verdict": verdict,
+                "sanctions_score": sanctions.get("score", 0),
+                "sanctions_hit": sanctions.get("hit", False),
+                "sanctions_block": sanctions.get("block", False),
+                "pep_hit": sanctions.get("pep_hit", False),
+                "pep_score": sanctions.get("pep_score", 0),
+                "method": sanctions.get("method"),
+                "screened_at": sanctions.get("screened_at"),
+            },
+            "sanctions_matches": sanctions.get("matches", []),
+            "pep_matches": sanctions.get("pep_matches", []),
+            "datasets_checked": sanctions.get("datasets_checked", []),
+            "query_used": sanctions.get("query", {}),
+            "error": sanctions.get("error"),
+        }
+    )
+
+
+@app.route("/api/applications/<app_id>/sanctions/rescreen", methods=["POST"])
+@admin_required
+def rescreen_application_sanctions(app_id):
+    """
+    Re-run sanctions + PEP screening on an existing application using its
+    stored OCR data. Useful after a new sanctions list update or if the
+    initial screen was skipped due to a missing API key.
+
+    Overwrites the sanctions_screening field in the DB.
+    Also re-evaluates the application status:
+      - BLOCK  → status = rejected  (overrides approved/reviewing)
+      - HIT    → status = reviewing (only if currently approved)
+      - PEP    → status = reviewing (only if currently approved)
+      - CLEAR  → status unchanged
+
+    Returns the fresh sanctions result plus any status change.
+    """
+    rec = applications_col.find_one({"application_id": app_id})
+    if not rec:
+        return jsonify({"success": False, "error": "Application not found"}), 404
+
+    if not OPENSANCTIONS_API_KEY:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "OpenSanctions API key not configured.",
+                }
+            ),
+            503,
+        )
+
+    ocr_data = rec.get("ocr_data") or {}
+    if not ocr_data.get("full_name"):
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "No OCR data found for this application. "
+                    "The document may not have been processed yet.",
+                }
+            ),
+            400,
+        )
+
+    # Re-run the screening using existing helper
+    sanctions = run_sanctions_screening(app_id, ocr_data, rec.get("country_code", ""))
+
+    # Re-evaluate application status
+    current_status = rec.get("status", "")
+    new_status = current_status
+    status_changed = False
+    rejection_reason = None
+
+    if sanctions.get("block"):
+        new_status = "rejected"
+        rejection_reason = (
+            f"Sanctions re-screen BLOCK — score={sanctions['score']:.3f} "
+            f"on {sanctions['screened_at']}"
+        )
+        status_changed = new_status != current_status
+
+    elif sanctions.get("hit") and current_status == "approved":
+        new_status = "reviewing"
+        status_changed = True
+
+    elif sanctions.get("pep_hit") and current_status == "approved":
+        new_status = "reviewing"
+        status_changed = True
+
+    # Build DB update
+    update_fields = {
+        "sanctions_screening": sanctions,
+        "updated_at": datetime.utcnow(),
+    }
+    if status_changed:
+        update_fields["status"] = new_status
+    if rejection_reason:
+        update_fields["rejection_reason"] = rejection_reason
+        update_fields["reviewed_by"] = "system_rescreen"
+        update_fields["reviewed_at"] = datetime.utcnow()
+
+    applications_col.update_one({"application_id": app_id}, {"$set": update_fields})
+
+    audit(
+        app_id,
+        "sanctions_rescreened",
+        json.dumps(
+            {
+                "sanctions_hit": sanctions.get("hit"),
+                "sanctions_block": sanctions.get("block"),
+                "sanctions_score": sanctions.get("score"),
+                "pep_hit": sanctions.get("pep_hit"),
+                "pep_score": sanctions.get("pep_score"),
+                "previous_status": current_status,
+                "new_status": new_status,
+                "status_changed": status_changed,
+            }
+        ),
+        user=session.get("email", "admin"),
+    )
+
+    # Build verdict
+    if sanctions.get("block"):
+        verdict = "BLOCK"
+    elif sanctions.get("hit"):
+        verdict = "HIT"
+    elif sanctions.get("pep_hit"):
+        verdict = "PEP_HIT"
+    else:
+        verdict = "CLEAR"
+
+    return jsonify(
+        {
+            "success": True,
+            "application_id": app_id,
+            "applicant_name": ocr_data.get("full_name"),
+            "summary": {
+                "verdict": verdict,
+                "sanctions_score": sanctions.get("score", 0),
+                "sanctions_hit": sanctions.get("hit", False),
+                "sanctions_block": sanctions.get("block", False),
+                "pep_hit": sanctions.get("pep_hit", False),
+                "pep_score": sanctions.get("pep_score", 0),
+                "method": sanctions.get("method"),
+                "screened_at": sanctions.get("screened_at"),
+            },
+            "status_change": {
+                "changed": status_changed,
+                "previous_status": current_status,
+                "new_status": new_status,
+            },
+            "sanctions_matches": sanctions.get("matches", []),
+            "pep_matches": sanctions.get("pep_matches", []),
+            "datasets_checked": sanctions.get("datasets_checked", []),
+        }
+    )
 
 
 # ══════════════════════════════════════════════════════════════════════════════

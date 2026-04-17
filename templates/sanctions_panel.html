@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sanctions Screening — KYC Admin</title>
     <style>
-      /* ── Design tokens ── */
       :root {
         --bg: #0f1117;
         --surface: #1a1d27;
@@ -20,6 +19,10 @@
         --muted: #8892a4;
         --radius: 10px;
         --font: "Inter", system-ui, sans-serif;
+        /* Canada / FINTRAC */
+        --ca-red: #cc0000;
+        --ca-light: #fff0f0;
+        --ca-border: #e88080;
       }
 
       * {
@@ -36,7 +39,6 @@
         padding: 28px 20px;
       }
 
-      /* ── Layout ── */
       .page-header {
         display: flex;
         align-items: center;
@@ -74,7 +76,6 @@
         }
       }
 
-      /* ── Cards ── */
       .card {
         background: var(--surface);
         border: 1px solid var(--border);
@@ -90,7 +91,31 @@
         margin-bottom: 16px;
       }
 
-      /* ── Form ── */
+      /* ── FINTRAC mode card accent ── */
+      .card.fintrac-mode {
+        border-color: var(--ca-border);
+        background: #1e1216;
+      }
+      .fintrac-banner {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #2a0a0a;
+        border: 1px solid var(--ca-border);
+        border-radius: 8px;
+        padding: 10px 14px;
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: #f9a8a8;
+      }
+      .fintrac-banner .flag {
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .fintrac-banner strong {
+        color: #fca5a5;
+      }
+
       .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -109,7 +134,6 @@
         display: block;
         margin-bottom: 5px;
       }
-
       input,
       select {
         width: 100%;
@@ -126,11 +150,15 @@
         outline: none;
         border-color: var(--accent);
       }
+      /* highlight nationality field when CA is entered */
+      input.is-ca {
+        border-color: var(--ca-border);
+        background: #1e1010;
+      }
       .form-group {
         margin-bottom: 14px;
       }
 
-      /* ── Buttons ── */
       .btn {
         display: inline-flex;
         align-items: center;
@@ -159,12 +187,8 @@
         border: 1px solid var(--border);
         color: var(--text);
       }
-      .btn-danger {
-        background: var(--red);
-        color: #fff;
-      }
-      .btn-green {
-        background: var(--green);
+      .btn-fintrac {
+        background: linear-gradient(135deg, #9b1a1a, #cc0000);
         color: #fff;
       }
       .btn-row {
@@ -216,14 +240,22 @@
         border-color: #4a3800;
       }
       .chip.ca {
-        background: #2d1020;
-        color: #fb7185;
-        border-color: #4a1830;
+        background: #2d1010;
+        color: #fca5a5;
+        border-color: #7f3333;
       }
       .chip.int {
         background: #1a1a1a;
         color: #94a3b8;
         border-color: #333;
+      }
+      /* FINTRAC-specific chip style */
+      .chip.fintrac {
+        background: #3a0a0a;
+        color: #fca5a5;
+        border: 1px solid #7f2222;
+        font-weight: 700;
+        letter-spacing: 0.3px;
       }
 
       /* ── Result panel ── */
@@ -240,6 +272,13 @@
         justify-content: space-between;
         padding: 12px 16px;
         border-bottom: 1px solid var(--border);
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .result-header-left {
+        display: flex;
+        align-items: center;
+        gap: 8px;
       }
       .status-pill {
         padding: 4px 12px;
@@ -264,6 +303,25 @@
         background: #1e1b4b;
         color: #a5b4fc;
       }
+      /* FINTRAC badge alongside the status pill */
+      .fintrac-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 9px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        background: #3a0a0a;
+        color: #fca5a5;
+        border: 1px solid #7f2222;
+      }
+      .compliance-label {
+        font-size: 11px;
+        color: var(--muted);
+        white-space: nowrap;
+      }
 
       .score-bar {
         height: 6px;
@@ -276,6 +334,41 @@
         height: 100%;
         border-radius: 3px;
         transition: width 0.5s;
+      }
+
+      /* Per-dataset scores table (FINTRAC only) */
+      .per-dataset-table {
+        padding: 10px 16px 4px;
+        border-top: 1px solid var(--border);
+      }
+      .per-dataset-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+      }
+      .pds-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 0;
+        border-bottom: 1px solid rgba(46, 50, 71, 0.5);
+        font-size: 12px;
+      }
+      .pds-row:last-child {
+        border-bottom: none;
+      }
+      .pds-name {
+        color: var(--text);
+        flex: 1;
+        padding-right: 12px;
+      }
+      .pds-score {
+        font-weight: 700;
+        min-width: 40px;
+        text-align: right;
       }
 
       .match-list {
@@ -338,7 +431,6 @@
         color: #7eb2f7;
         border-color: #1d3461;
       }
-
       .match-link {
         font-size: 11px;
         color: var(--accent);
@@ -350,7 +442,6 @@
         text-decoration: underline;
       }
 
-      /* ── Bulk table ── */
       .table-wrap {
         overflow-x: auto;
       }
@@ -380,7 +471,6 @@
         background: var(--surface2);
       }
 
-      /* ── Spinner ── */
       .spinner {
         display: inline-block;
         width: 16px;
@@ -396,7 +486,6 @@
         }
       }
 
-      /* ── Placeholder ── */
       .placeholder {
         text-align: center;
         padding: 40px 20px;
@@ -407,7 +496,6 @@
         font-size: 36px;
         margin-bottom: 10px;
       }
-
       .empty {
         color: var(--muted);
         font-size: 13px;
@@ -415,7 +503,6 @@
         padding: 30px;
       }
 
-      /* ── Mode tabs ── */
       .tabs {
         display: flex;
         gap: 6px;
@@ -438,7 +525,6 @@
         color: #fff;
       }
 
-      /* ── Toast ── */
       #toast {
         position: fixed;
         bottom: 24px;
@@ -476,13 +562,16 @@
       <div class="icon">🛡️</div>
       <div>
         <h1>Sanctions &amp; PEP Screening</h1>
-        <p>Multi-jurisdiction AML / CFT screening powered by OpenSanctions</p>
+        <p>
+          Multi-jurisdiction AML/CFT screening powered by OpenSanctions ·
+          Canadian applicants automatically use FINTRAC (PCMLTFA) mode
+        </p>
       </div>
     </div>
 
     <!-- DATASET COVERAGE OVERVIEW -->
     <div class="card" style="margin-bottom: 20px">
-      <div class="card-title">Dataset Coverage</div>
+      <div class="card-title">Dataset Coverage — Global</div>
       <div class="coverage">
         <span class="chip un">🇺🇳 UN SC Consolidated</span>
         <span class="chip us">🇺🇸 OFAC SDN</span>
@@ -500,6 +589,61 @@
       </div>
     </div>
 
+    <!-- FINTRAC COVERAGE OVERVIEW -->
+    <div class="card fintrac-mode" style="margin-bottom: 20px">
+      <div class="card-title" style="color: #f87171">
+        🇨🇦 FINTRAC Mode — Canada (PCMLTFA-Compliant)
+      </div>
+      <div
+        style="
+          font-size: 12px;
+          color: var(--muted);
+          margin-bottom: 10px;
+          line-height: 1.6;
+        "
+      >
+        Automatically activated when
+        <code
+          style="
+            background: var(--surface2);
+            padding: 1px 5px;
+            border-radius: 4px;
+          "
+          >nationality</code
+        >
+        or
+        <code
+          style="
+            background: var(--surface2);
+            padding: 1px 5px;
+            border-radius: 4px;
+          "
+          >country_code</code
+        >
+        = <strong style="color: #fca5a5">CA</strong>. Covers all lists mandated
+        by the
+        <em>Proceeds of Crime (Money Laundering) and Terrorist Financing Act</em
+        >. Each dataset is queried separately and per-list scores are stored for
+        audit.
+      </div>
+      <div class="coverage">
+        <span class="chip fintrac">🇨🇦 Global Affairs Canada – SEMA/DFATD</span>
+        <span class="chip fintrac"
+          >🇨🇦 Criminal Code s.83 – Listed Terrorist Entities</span
+        >
+        <span class="chip fintrac"
+          >🇨🇦 Suppression of Terrorism Regulations</span
+        >
+        <span class="chip fintrac">🇨🇦 OSFI Consolidated List</span>
+        <span class="chip un">🇺🇳 UN SC Consolidated (1267/1989/2253)</span>
+        <span class="chip us">🇺🇸 OFAC SDN (cross-border best practice)</span>
+        <span class="chip int">🌐 Interpol Red Notices</span>
+        <span class="chip fintrac"
+          >🇨🇦 FINTRAC PEP Database (PCMLTFA s.9.3)</span
+        >
+      </div>
+    </div>
+
     <!-- TABS -->
     <div class="tabs">
       <div class="tab active" onclick="switchTab('manual')">
@@ -513,12 +657,21 @@
     <div id="tab-manual">
       <div class="grid2">
         <!-- Search form -->
-        <div class="card">
+        <div class="card" id="manual-card">
           <div class="card-title">Search Entity</div>
+
+          <!-- FINTRAC notice — shown when CA is entered -->
+          <div class="fintrac-banner" id="fintrac-notice" style="display: none">
+            <span class="flag">🇨🇦</span>
+            <span>
+              <strong>FINTRAC mode active</strong> — screening will use
+              PCMLTFA-mandated Canadian lists + FINTRAC PEP database
+            </span>
+          </div>
 
           <div class="form-group">
             <label>Full Name *</label>
-            <input type="text" id="s-name" placeholder="e.g. Vladimir Petrov" />
+            <input type="text" id="s-name" placeholder="e.g. Jean Tremblay" />
           </div>
           <div class="form-row">
             <div class="form-group">
@@ -526,13 +679,14 @@
               <input type="date" id="s-dob" />
             </div>
             <div class="form-group">
-              <label>Nationality (ISO-2)</label>
+              <label>Nationality / Country (ISO-2)</label>
               <input
                 type="text"
                 id="s-nat"
                 maxlength="2"
-                placeholder="e.g. RU"
+                placeholder="e.g. CA · GB · US"
                 style="text-transform: uppercase"
+                oninput="onNatInput(this)"
               />
             </div>
           </div>
@@ -550,8 +704,11 @@
           <div class="form-group">
             <label>Screening Mode</label>
             <select id="s-mode">
-              <option value="full">Full KYC (Sanctions + PEP)</option>
-              <option value="sanctions">Sanctions Only</option>
+              <option value="full">
+                Full KYC (auto-route: FINTRAC for CA, global otherwise)
+              </option>
+              <option value="fintrac">Force FINTRAC (Canada PCMLTFA)</option>
+              <option value="sanctions">Sanctions Only (global)</option>
               <option value="peps">PEP Only</option>
             </select>
           </div>
@@ -576,7 +733,8 @@
             <div class="big">🛡️</div>
             <div>Enter a name and click <strong>Screen Now</strong></div>
             <div style="margin-top: 6px; font-size: 12px">
-              Checks against UN, OFAC, EU, UK, Australia, Canada &amp; more
+              Enter nationality <strong>CA</strong> to activate FINTRAC mode
+              automatically
             </div>
           </div>
         </div>
@@ -587,13 +745,17 @@
     <div id="tab-app" style="display: none">
       <div class="card">
         <div class="card-title">Screen by Application ID</div>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px">
+          Canadian applications (country_code=CA) are automatically screened in
+          FINTRAC mode.
+        </p>
         <div class="form-row">
           <div class="form-group">
             <label>Application ID</label>
             <input
               type="text"
               id="app-id-input"
-              placeholder="e.g. app_abc123"
+              placeholder="e.g. KYC20240101ABCD1234"
             />
           </div>
           <div class="form-group" style="align-self: flex-end">
@@ -611,11 +773,10 @@
       <div class="card">
         <div class="card-title">Bulk Sanctions Screen</div>
         <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px">
-          Runs sanctions screening on all applications that haven't been checked
-          yet (status: processing / reviewing / pending_onfido). This may take a
-          few minutes.
+          Runs sanctions screening on all unscreened applications (status:
+          processing / reviewing / pending_onfido). Canadian applications are
+          automatically routed to FINTRAC mode. This may take a few minutes.
         </p>
-
         <div class="btn-row">
           <button
             class="btn btn-primary"
@@ -625,7 +786,6 @@
             ⚡ Run Bulk Screen
           </button>
         </div>
-
         <div id="bulk-result" style="margin-top: 20px"></div>
       </div>
     </div>
@@ -634,10 +794,9 @@
     <div id="toast"></div>
 
     <script>
-      // ── State ──────────────────────────────────────────────────────────────────
-      const API = ""; // same origin
+      const API = "";
 
-      // ── Tab switching ──────────────────────────────────────────────────────────
+      /* ── Tab switching ──────────────────────────────────────────────── */
       function switchTab(name) {
         ["manual", "app", "bulk"].forEach((t) => {
           document.getElementById("tab-" + t).style.display =
@@ -650,7 +809,25 @@
         });
       }
 
-      // ── Toast ──────────────────────────────────────────────────────────────────
+      /* ── Nationality field — FINTRAC auto-detect ────────────────────── */
+      function onNatInput(el) {
+        const val = el.value.trim().toUpperCase();
+        const isCA = val === "CA";
+        el.classList.toggle("is-ca", isCA);
+        document.getElementById("fintrac-notice").style.display = isCA
+          ? ""
+          : "none";
+        document
+          .getElementById("manual-card")
+          .classList.toggle("fintrac-mode", isCA);
+        // Auto-select FINTRAC mode in the dropdown
+        const modeEl = document.getElementById("s-mode");
+        if (isCA && modeEl.value === "full") {
+          // leave on "full" — routing happens server-side; just show the notice
+        }
+      }
+
+      /* ── Toast ──────────────────────────────────────────────────────── */
       function toast(msg, type = "ok") {
         const el = document.getElementById("toast");
         el.textContent = msg;
@@ -659,7 +836,7 @@
         el._t = setTimeout(() => (el.className = ""), 3500);
       }
 
-      // ── Score colour ───────────────────────────────────────────────────────────
+      /* ── Score colour ───────────────────────────────────────────────── */
       function scoreColor(score) {
         if (score >= 0.9) return "#ef4444";
         if (score >= 0.7) return "#f59e0b";
@@ -667,14 +844,7 @@
         return "#22c55e";
       }
 
-      function scoreClass(match) {
-        const score = match.score || 0;
-        if (score >= 0.9) return "status-block";
-        if (score >= 0.7) return "status-alert";
-        return "status-clean";
-      }
-
-      // ── Render matches ─────────────────────────────────────────────────────────
+      /* ── Render matches ─────────────────────────────────────────────── */
       function renderMatches(matches) {
         if (!matches || !matches.length) {
           return '<div class="empty">✅ No matches found in any dataset</div>';
@@ -686,7 +856,13 @@
             const topics = (m.topics || [])
               .map(
                 (t) =>
-                  `<span class="match-tag ${t.includes("sanction") ? "danger" : t.includes("pep") ? "warn" : "info"}">${t}</span>`,
+                  `<span class="match-tag ${
+                    t.includes("sanction")
+                      ? "danger"
+                      : t.includes("pep")
+                        ? "warn"
+                        : "info"
+                  }">${t}</span>`,
               )
               .join("");
             const datasets = (m.datasets || [])
@@ -694,50 +870,59 @@
               .map((d) => `<span class="match-tag">${d}</span>`)
               .join("");
             return `
-      <div class="match-item">
-        <div class="match-top">
-          <div class="match-name">${escHtml(m.name)}</div>
-          <span class="match-score-badge" style="background:${color}22;color:${color};border:1px solid ${color}44;">
-            ${pct}% match
-          </span>
-        </div>
-        <div class="match-meta">
-          ${m.schema ? `<strong>${m.schema}</strong> · ` : ""}
-          ${m.nationality && m.nationality.length ? "Nationality: " + m.nationality.join(", ") + " · " : ""}
-          ${m.birth_date && m.birth_date.length ? "DOB: " + m.birth_date[0] + " · " : ""}
-          ${m.aliases && m.aliases.length ? "Aliases: " + m.aliases.slice(0, 3).join(", ") : ""}
-        </div>
-        <div class="match-tags">${topics}${datasets}</div>
-        ${m.entity_url ? `<a class="match-link" href="${m.entity_url}" target="_blank">View on OpenSanctions ↗</a>` : ""}
-      </div>
-    `;
+            <div class="match-item">
+              <div class="match-top">
+                <div class="match-name">${escHtml(m.name)}</div>
+                <span class="match-score-badge"
+                      style="background:${color}22;color:${color};border:1px solid ${color}44;">
+                  ${pct}% match
+                </span>
+              </div>
+              <div class="match-meta">
+                ${m.schema ? `<strong>${m.schema}</strong> · ` : ""}
+                ${m.nationality?.length ? "Nationality: " + m.nationality.join(", ") + " · " : ""}
+                ${m.birth_date?.length ? "DOB: " + m.birth_date[0] + " · " : ""}
+                ${m.aliases?.length ? "Aliases: " + m.aliases.slice(0, 3).join(", ") : ""}
+              </div>
+              <div class="match-tags">${topics}${datasets}</div>
+              ${
+                m.entity_url
+                  ? `<a class="match-link" href="${m.entity_url}" target="_blank">
+                     View on OpenSanctions ↗</a>`
+                  : ""
+              }
+            </div>`;
           })
           .join("");
       }
 
-      // ── Render full result ─────────────────────────────────────────────────────
-      function renderResult(data, container) {
-        const isFull = !!data.sanctions_result;
-        let html = "";
-
-        // If full KYC (sanctions + pep) render two sections
-        if (isFull) {
-          const sr = data.sanctions_result || {};
-          const pr = data.pep_result || {};
-          html =
-            buildResultSection("⛔ Sanctions Check", sr) +
-            buildResultSection("🏛️ PEP Check", pr, true);
-        } else {
-          html = buildResultSection("🔍 Screening Result", data);
-        }
-
-        container.innerHTML = html;
+      /* ── Render per-dataset scores table (FINTRAC only) ─────────────── */
+      function renderPerDatasetScores(perScores) {
+        if (!perScores || !Object.keys(perScores).length) return "";
+        const rows = Object.entries(perScores)
+          .map(([label, score]) => {
+            const pct = Math.round(score * 100);
+            const color = scoreColor(score);
+            return `
+            <div class="pds-row">
+              <div class="pds-name">${escHtml(label)}</div>
+              <div class="pds-score" style="color:${color}">${pct}%</div>
+            </div>`;
+          })
+          .join("");
+        return `
+          <div class="per-dataset-table">
+            <div class="per-dataset-title">Per-list scores (FINTRAC audit trail)</div>
+            ${rows}
+          </div>`;
       }
 
+      /* ── Build a result section ─────────────────────────────────────── */
       function buildResultSection(title, result, isPep = false) {
         const score = result.score || 0;
         const pct = Math.round(score * 100);
         const color = scoreColor(score);
+        const isFintrac = !!result.fintrac_mode;
 
         let pillClass = "status-clean",
           pillLabel = "✅ CLEAR";
@@ -750,28 +935,89 @@
         }
 
         const datasets = (result.datasets_checked || [])
-          .map((d) => `<span class="chip">${d}</span>`)
+          .map(
+            (d) =>
+              `<span class="chip ${d.includes("Canada") || d.includes("FINTRAC") || d.includes("PCMLTFA") || d.includes("Criminal Code") ? "fintrac" : "int"}">${d}</span>`,
+          )
           .join("");
 
         const matches = renderMatches(result.matches || []);
+        const perDs = isFintrac
+          ? renderPerDatasetScores(result.per_dataset_scores)
+          : "";
+
+        const complianceLabel = result.compliance_regime
+          ? `<span class="compliance-label">${result.compliance_regime}</span>`
+          : "";
+        const fintracBadge = isFintrac
+          ? `<span class="fintrac-badge">🇨🇦 FINTRAC</span>`
+          : "";
 
         return `
-    <div class="result-box" style="margin-bottom:16px;">
-      <div class="result-header">
-        <strong style="font-size:13px;">${title}</strong>
-        <span class="status-pill ${pillClass}">${pillLabel}</span>
-      </div>
-      <div class="score-bar">
-        <div class="score-fill" style="width:${pct}%;background:${color};"></div>
-      </div>
-      <div style="padding:8px 16px;font-size:12px;color:var(--muted);">
-        Confidence score: <strong style="color:${color}">${pct}%</strong>
-        &nbsp;·&nbsp; ${result.screened_at ? new Date(result.screened_at).toLocaleString() : ""}
-      </div>
-      ${datasets ? `<div style="padding:0 16px 10px;">${datasets}</div>` : ""}
-      <div class="match-list">${matches}</div>
-    </div>
-  `;
+          <div class="result-box" style="margin-bottom:16px;">
+            <div class="result-header">
+              <div class="result-header-left">
+                <strong style="font-size:13px;">${title}</strong>
+                ${fintracBadge}
+                ${complianceLabel}
+              </div>
+              <span class="status-pill ${pillClass}">${pillLabel}</span>
+            </div>
+            <div class="score-bar">
+              <div class="score-fill" style="width:${pct}%;background:${color};"></div>
+            </div>
+            <div style="padding:8px 16px;font-size:12px;color:var(--muted);">
+              Confidence score: <strong style="color:${color}">${pct}%</strong>
+              &nbsp;·&nbsp;
+              ${result.screened_at ? new Date(result.screened_at).toLocaleString() : ""}
+            </div>
+            ${datasets ? `<div style="padding:0 16px 10px;">${datasets}</div>` : ""}
+            ${perDs}
+            <div class="match-list">${matches}</div>
+          </div>`;
+      }
+
+      /* ── Render full result ──────────────────────────────────────────── */
+      function renderResult(data, container) {
+        const isFull = !!data.sanctions_result;
+        const isFintrac = !!data.fintrac_mode;
+        let html = "";
+
+        if (isFintrac) {
+          // FINTRAC consolidated result — sanctions + PEP in one object
+          html = buildResultSection(
+            "🇨🇦 FINTRAC Sanctions Check (PCMLTFA)",
+            data,
+          );
+          if ((data.pep_matches && data.pep_matches.length) || data.pep_hit) {
+            // Render PEP sub-section with the pep-specific fields
+            const pepSection = {
+              score: data.pep_score || 0,
+              hit: data.pep_hit || false,
+              block: false,
+              matches: data.pep_matches || [],
+              datasets_checked: ["FINTRAC PEP Database (PCMLTFA s.9.3)"],
+              fintrac_mode: true,
+              compliance_regime: "FINTRAC (PCMLTFA)",
+              screened_at: data.screened_at,
+            };
+            html += buildResultSection(
+              "🇨🇦 FINTRAC PEP Check (PCMLTFA s.9.3)",
+              pepSection,
+              true,
+            );
+          }
+        } else if (isFull) {
+          const sr = data.sanctions_result || {};
+          const pr = data.pep_result || {};
+          html =
+            buildResultSection("⛔ Sanctions Check", sr) +
+            buildResultSection("🏛️ PEP Check", pr, true);
+        } else {
+          html = buildResultSection("🔍 Screening Result", data);
+        }
+
+        container.innerHTML = html;
       }
 
       function escHtml(s) {
@@ -781,7 +1027,7 @@
           .replace(/>/g, "&gt;");
       }
 
-      // ── Manual Screen ──────────────────────────────────────────────────────────
+      /* ── Manual Screen ───────────────────────────────────────────────── */
       async function runManualScreen() {
         const name = document.getElementById("s-name").value.trim();
         const dob = document.getElementById("s-dob").value;
@@ -796,12 +1042,16 @@
         }
 
         const btn = document.getElementById("btn-screen");
+        const panel = document.getElementById("result-panel");
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span> Screening…';
-
-        const panel = document.getElementById("result-panel");
-        panel.innerHTML =
-          '<div class="placeholder"><div class="big"><span class="spinner" style="width:32px;height:32px;border-width:3px;"></span></div><div style="margin-top:14px;">Checking against international watchlists…</div></div>';
+        panel.innerHTML = `
+          <div class="placeholder">
+            <div class="big"><span class="spinner" style="width:32px;height:32px;border-width:3px;"></span></div>
+            <div style="margin-top:14px;">
+              ${nat === "CA" ? "🇨🇦 Running FINTRAC (PCMLTFA) screening…" : "Checking against international watchlists…"}
+            </div>
+          </div>`;
 
         try {
           const resp = await fetch(`${API}/api/sanctions/screen`, {
@@ -822,10 +1072,11 @@
           renderResult(data, panel);
 
           const hit = data.hit || data.block;
+          const label = data.fintrac_mode ? "FINTRAC" : "global";
           toast(
             hit
-              ? `⚠️ Potential match found (score ${Math.round((data.score || 0) * 100)}%)`
-              : "✅ No matches found — clear",
+              ? `⚠️ Potential match found (${label}, score ${Math.round((data.score || 0) * 100)}%)`
+              : `✅ No matches found — clear (${label})`,
             hit ? "warn" : "ok",
           );
         } catch (e) {
@@ -842,14 +1093,20 @@
           (id) => (document.getElementById(id).value = ""),
         );
         document.getElementById("s-mode").value = "full";
+        document.getElementById("fintrac-notice").style.display = "none";
+        document.getElementById("manual-card").classList.remove("fintrac-mode");
+        document.getElementById("s-nat").classList.remove("is-ca");
         document.getElementById("result-panel").innerHTML = `
-    <div class="placeholder">
-      <div class="big">🛡️</div>
-      <div>Enter a name and click <strong>Screen Now</strong></div>
-    </div>`;
+          <div class="placeholder">
+            <div class="big">🛡️</div>
+            <div>Enter a name and click <strong>Screen Now</strong></div>
+            <div style="margin-top:6px;font-size:12px;">
+              Enter nationality <strong>CA</strong> to activate FINTRAC mode
+            </div>
+          </div>`;
       }
 
-      // ── App Screen ─────────────────────────────────────────────────────────────
+      /* ── App Screen ──────────────────────────────────────────────────── */
       async function runAppScreen() {
         const appId = document.getElementById("app-id-input").value.trim();
         if (!appId) {
@@ -873,8 +1130,11 @@
           const data = await resp.json();
           if (!resp.ok) throw new Error(data.error || "Server error");
           renderResult(data, container);
+          const label = data.fintrac_mode ? " (FINTRAC)" : "";
           toast(
-            data.hit || data.block ? "⚠️ Potential hit found" : "✅ Clear",
+            data.hit || data.block
+              ? `⚠️ Potential hit found${label}`
+              : `✅ Clear${label}`,
             data.hit || data.block ? "warn" : "ok",
           );
         } catch (e) {
@@ -883,7 +1143,7 @@
         }
       }
 
-      // ── Bulk Screen ────────────────────────────────────────────────────────────
+      /* ── Bulk Screen ─────────────────────────────────────────────────── */
       async function runBulkScreen() {
         const btn = document.getElementById("btn-bulk");
         btn.disabled = true;
@@ -901,21 +1161,32 @@
           if (!resp.ok) throw new Error(data.error || "Server error");
 
           const s = data.summary || {};
+          const fintracRow = s.fintrac_count
+            ? `<tr><td>🇨🇦 Screened via FINTRAC</td>
+                   <td style="color:#fca5a5"><strong>${s.fintrac_count}</strong></td></tr>`
+            : "";
           res.innerHTML = `
-      <div class="grid2">
-        <div class="card" style="border-color:var(--border)">
-          <div class="card-title">Bulk Screen Summary</div>
-          <table>
-            <tr><td>Total screened</td><td><strong>${s.total || 0}</strong></td></tr>
-            <tr><td>✅ Clean</td><td style="color:var(--green)"><strong>${s.clean || 0}</strong></td></tr>
-            <tr><td>⚠️ Alerts (review)</td><td style="color:var(--yellow)"><strong>${s.hits || 0}</strong></td></tr>
-            <tr><td>🚫 Blocks (auto-rejected)</td><td style="color:var(--red)"><strong>${s.blocks || 0}</strong></td></tr>
-            <tr><td>❌ Errors</td><td style="color:var(--muted)"><strong>${s.errors || 0}</strong></td></tr>
-          </table>
-        </div>
-      </div>`;
+            <div class="grid2">
+              <div class="card" style="border-color:var(--border)">
+                <div class="card-title">Bulk Screen Summary</div>
+                <table>
+                  <tr><td>Total screened</td>
+                      <td><strong>${s.total || 0}</strong></td></tr>
+                  <tr><td>✅ Clean</td>
+                      <td style="color:var(--green)"><strong>${s.clean || 0}</strong></td></tr>
+                  <tr><td>⚠️ Alerts (review)</td>
+                      <td style="color:var(--yellow)"><strong>${s.hits || 0}</strong></td></tr>
+                  <tr><td>🚫 Blocks (auto-rejected)</td>
+                      <td style="color:var(--red)"><strong>${s.blocks || 0}</strong></td></tr>
+                  ${fintracRow}
+                  <tr><td>❌ Errors</td>
+                      <td style="color:var(--muted)"><strong>${s.errors || 0}</strong></td></tr>
+                </table>
+              </div>
+            </div>`;
           toast(
-            `Bulk screen complete — ${s.blocks || 0} block(s), ${s.hits || 0} alert(s)`,
+            `Bulk screen complete — ${s.blocks || 0} block(s), ${s.hits || 0} alert(s)` +
+              (s.fintrac_count ? `, ${s.fintrac_count} via FINTRAC` : ""),
             (s.blocks || 0) > 0 ? "err" : (s.hits || 0) > 0 ? "warn" : "ok",
           );
         } catch (e) {
@@ -927,14 +1198,13 @@
         }
       }
 
-      // Enter key in manual form
+      /* Enter key in manual form */
       document.addEventListener("keydown", (e) => {
         if (
           e.key === "Enter" &&
           document.getElementById("tab-manual").style.display !== "none"
-        ) {
+        )
           runManualScreen();
-        }
       });
     </script>
   </body>

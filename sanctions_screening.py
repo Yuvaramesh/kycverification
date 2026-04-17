@@ -2,6 +2,7 @@
 sanctions_screening.py
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Multi-Jurisdiction Sanctions Screening Module for the KYC App
+Canada uses FINTRAC-specific AML screening (PCMLTFA-compliant).
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 HOW TO INTEGRATE INTO app.py
@@ -16,11 +17,29 @@ HOW TO INTEGRATE INTO app.py
 5.  Add OPENSANCTIONS_API_KEY=<your-key> to your .env file.
         Get a free non-commercial key at https://www.opensanctions.org/api/
 
-DATASET COVERAGE
+CANADA / FINTRAC COMPLIANCE
 ─────────────────────────────
-The screener checks ALL of the following lists in a single API call via the
-OpenSanctions /match endpoint (dataset = "default" covers all sources):
+When country_code == "CA" the screener automatically switches to FINTRAC mode.
+This covers all lists mandated by the Proceeds of Crime (Money Laundering) and
+Terrorist Financing Act (PCMLTFA) and FINTRAC guidelines:
 
+  ┌─────────────────────────────────────────────────────────────────────────────┐
+  │ FINTRAC-mandated list                        │ OpenSanctions dataset        │
+  ├─────────────────────────────────────────────────────────────────────────────┤
+  │ OSFI / Global Affairs Canada – SEMA/DFATD    │ ca_dfatd_sema_sanctions      │
+  │ UN SC Consolidated (1267/1989/2253)          │ un_sc_sanctions              │
+  │ Criminal Code – Listed Terrorist Entities    │ ca_dfatd_sema_sanctions *    │
+  │ Suppression of Terrorism Regulations         │ ca_dfatd_sema_sanctions *    │
+  │ OFAC SDN (cross-border best practice)        │ us_ofac_sdn                  │
+  │ Interpol Red Notices                         │ interpol_red_notices         │
+  │ PEP screening (PCMLTFA s.9.3)               │ peps                         │
+  └─────────────────────────────────────────────────────────────────────────────┘
+  * SEMA/DFATD dataset on OpenSanctions consolidates Criminal Code + STR lists.
+
+All other countries continue to use the full global sanctions dataset.
+
+DATASET COVERAGE (non-CA)
+─────────────────────────────
   ┌──────────────────────────────────────────────────────────────────────────┐
   │ Jurisdiction  │ Datasets included                                        │
   ├──────────────────────────────────────────────────────────────────────────┤
@@ -37,18 +56,17 @@ OpenSanctions /match endpoint (dataset = "default" covers all sources):
   │ World Bank    │ Debarred & Cross-Debarred Firms                          │
   └──────────────────────────────────────────────────────────────────────────┘
 
-  PEP screening is separate — uses dataset = "peps"
-  China MOFCOM/OFAC-China layer covered via "default" dataset.
-
 FLASK ROUTES ADDED
 ─────────────────────────────
   POST /api/sanctions/screen
         Body: { name, birth_date?, nationality?, application_id? }
-        Returns: { hit: bool, score, matches: [...], datasets_checked }
+        Returns: { hit: bool, score, matches: [...], datasets_checked,
+                   fintrac_mode: bool }
 
   POST /api/applications/<app_id>/sanctions-check
         Runs screening using name/dob stored on the application record.
         Saves results back to MongoDB and triggers audit log.
+        Auto-selects FINTRAC mode when application country_code == "CA".
 
   GET  /api/applications/<app_id>/sanctions-result
         Returns the last saved sanctions screening result.
@@ -64,15 +82,10 @@ import requests
 logger = logging.getLogger(__name__)
 
 # ── OpenSanctions dataset IDs ─────────────────────────────────────────────────
-# "default"   → all sanctions + PEPs + crime (widest net for KYC)
-# "sanctions" → core sanctions lists only (lower false-positive rate)
-# "peps"      → Politically Exposed Persons only
-# Per-jurisdiction dataset IDs for targeted checks:
 DATASET_MAP = {
-    "default": "default",  # everything
-    "sanctions": "sanctions",  # consolidated sanctions only
-    "peps": "peps",  # PEPs only
-    # Country-specific (used for targeted deep-dives):
+    "default": "default",
+    "sanctions": "sanctions",
+    "peps": "peps",
     "un": "un_sc_sanctions",
     "us_ofac": "us_ofac_sdn",
     "us_ofac_cons": "us_ofac_cons",
@@ -86,6 +99,32 @@ DATASET_MAP = {
     "interpol": "interpol_red_notices",
 }
 
+# ── FINTRAC-mandated datasets (Canada AML/CFT — PCMLTFA compliance) ───────────
+# Covers every list Reporting Entities must screen under the Proceeds of Crime
+# (Money Laundering) and Terrorist Financing Act and FINTRAC guidelines.
+# Each entry is a separate OpenSanctions /match/<dataset> call so scores are
+# isolated per list, then aggregated to the highest score.
+FINTRAC_SANCTIONS_DATASETS = [
+    "ca_dfatd_sema_sanctions",  # Global Affairs Canada SEMA/DFATD
+    #   → consolidates: Criminal Code s.83,
+    #     Suppression of Terrorism Regs,
+    #     OSFI Consolidated List
+    "un_sc_sanctions",  # UN Security Council 1267/1989/2253
+    "us_ofac_sdn",  # OFAC SDN (best-practice cross-border check)
+    "interpol_red_notices",  # Interpol Red Notices
+]
+FINTRAC_PEP_DATASET = "peps"  # PCMLTFA s.9.3 PEP obligation
+
+FINTRAC_DATASET_LABELS = [
+    "Global Affairs Canada – SEMA/DFATD Consolidated",
+    "UN Security Council Consolidated List (1267/1989/2253)",
+    "Criminal Code – Listed Terrorist Entities (Canada)",
+    "Suppression of Terrorism Regulations (Canada)",
+    "OFAC SDN List (cross-border best practice)",
+    "Interpol Red Notices",
+    "FINTRAC PEP Database (PCMLTFA s.9.3)",
+]
+
 # Score thresholds
 SCORE_ALERT = 0.70  # flag for review
 SCORE_BLOCK = 0.90  # automatic block / further verification needed
@@ -97,10 +136,17 @@ class SanctionsScreener:
     """
     Wrapper around the OpenSanctions yente API.
 
-    Usage:
+    Usage (generic):
         screener = SanctionsScreener(api_key="YOUR_KEY")
         result   = screener.screen_person("John Smith", birth_date="1975-03-12",
                                           nationality="RU")
+
+    Usage (FINTRAC / Canada):
+        result = screener.screen_person_fintrac("Jane Doe",
+                                                birth_date="1980-06-15",
+                                                nationality="CA")
+        # or let full_kyc_screen() auto-route when country_code="CA":
+        result = screener.full_kyc_screen("Jane Doe", ..., country_code="CA")
     """
 
     def __init__(self, api_key: Optional[str] = None):
@@ -196,6 +242,106 @@ class SanctionsScreener:
         raw = self._match(entity, dataset=dataset)
         return self._parse_result(raw, name=name)
 
+    def screen_person_fintrac(
+        self,
+        name: str,
+        birth_date: Optional[str] = None,
+        nationality: Optional[str] = None,
+        passport_number: Optional[str] = None,
+        id_number: Optional[str] = None,
+    ) -> dict:
+        """
+        FINTRAC-compliant AML screening for Canadian applicants.
+
+        Screens across every list mandated by the Proceeds of Crime (Money
+        Laundering) and Terrorist Financing Act (PCMLTFA) and FINTRAC
+        guidelines:
+          • Global Affairs Canada SEMA/DFATD Consolidated
+            (includes Criminal Code s.83 terrorist entities +
+             Suppression of Terrorism Regulations + OSFI list)
+          • UN Security Council Consolidated (1267/1989/2253)
+          • OFAC SDN (cross-border best practice)
+          • Interpol Red Notices
+          • FINTRAC PEP database (PCMLTFA s.9.3 obligation)
+
+        Each dataset is queried separately so per-list scores are preserved
+        in the result for audit purposes. The overall score is the maximum
+        across all datasets.
+
+        Returns same schema as screen_person() with two additional fields:
+            fintrac_mode      – True (always, for this method)
+            per_dataset_scores – { dataset_label: score } for audit trail
+        """
+        entity: dict = {
+            "schema": "Person",
+            "properties": {"name": [name]},
+        }
+        if birth_date:
+            entity["properties"]["birthDate"] = [birth_date]
+        if nationality:
+            entity["properties"]["nationality"] = [nationality]
+        if passport_number:
+            entity["properties"]["passportNumber"] = [passport_number]
+        if id_number:
+            entity["properties"]["idNumber"] = [id_number]
+
+        all_results = []
+        per_dataset_scores: dict = {}
+        errors = []
+
+        # Query each FINTRAC-mandated sanctions dataset separately
+        for ds in FINTRAC_SANCTIONS_DATASETS:
+            raw = self._match(entity, dataset=ds)
+            if not raw.get("success"):
+                errors.append(f"{ds}: {raw.get('error', 'unknown error')}")
+                continue
+            parsed = self._parse_result(raw, name=name)
+            ds_label = self._fintrac_label_for_dataset(ds)
+            per_dataset_scores[ds_label] = parsed["score"]
+            all_results.extend(raw.get("results", []))
+
+        # Deduplicate by entity id, keep highest score
+        seen: dict = {}
+        for entity_hit in all_results:
+            eid = entity_hit.get("id")
+            if eid is None:
+                continue
+            existing = seen.get(eid)
+            if existing is None or entity_hit.get("score", 0) > existing.get(
+                "score", 0
+            ):
+                seen[eid] = entity_hit
+
+        deduped_results = list(seen.values())
+        sanctions_parsed = self._parse_result(
+            {
+                "success": True,
+                "dataset": "fintrac_consolidated",
+                "results": deduped_results,
+            },
+            name=name,
+        )
+
+        # PEP check (PCMLTFA s.9.3)
+        pep_raw = self._match(entity, dataset=FINTRAC_PEP_DATASET)
+        pep_parsed = self._parse_result(pep_raw, name=name)
+        per_dataset_scores["FINTRAC PEP Database (PCMLTFA s.9.3)"] = pep_parsed["score"]
+
+        return {
+            "hit": sanctions_parsed["hit"] or pep_parsed["hit"],
+            "block": sanctions_parsed["block"] or pep_parsed["block"],
+            "score": sanctions_parsed["score"],
+            "matches": sanctions_parsed["matches"],
+            "pep_hit": pep_parsed["hit"],
+            "pep_score": pep_parsed["score"],
+            "pep_matches": pep_parsed["matches"],
+            "screened_at": datetime.utcnow().isoformat(),
+            "datasets_checked": FINTRAC_DATASET_LABELS,
+            "fintrac_mode": True,
+            "per_dataset_scores": per_dataset_scores,
+            "errors": errors or None,
+        }
+
     def screen_organisation(
         self,
         name: str,
@@ -225,11 +371,31 @@ class SanctionsScreener:
         nationality: Optional[str] = None,
         passport_number: Optional[str] = None,
         id_number: Optional[str] = None,
+        country_code: Optional[str] = None,
     ) -> dict:
         """
-        Run both sanctions + PEP screening in parallel (two API calls).
-        Returns a combined result with separate sanctions_result and pep_result.
+        Run both sanctions + PEP screening.
+
+        When country_code == "CA" (or nationality == "CA"), automatically
+        switches to FINTRAC-compliant screening mode (PCMLTFA-mandated lists).
+        All other countries use the standard global sanctions + peps datasets.
+
+        Returns a combined result. In FINTRAC mode the result includes
+        fintrac_mode=True and per_dataset_scores for audit purposes.
         """
+        # Determine effective country
+        effective_country = (country_code or nationality or "").strip().upper()
+
+        if effective_country == "CA":
+            # ── FINTRAC path ──────────────────────────────────────────────────
+            logger.info("full_kyc_screen: routing to FINTRAC mode for CA applicant")
+            result = self.screen_person_fintrac(
+                name, birth_date, nationality, passport_number, id_number
+            )
+            result["compliance_regime"] = "FINTRAC (PCMLTFA)"
+            return result
+
+        # ── Standard global path ──────────────────────────────────────────────
         sanctions_result = self.screen_person(
             name,
             birth_date,
@@ -249,6 +415,8 @@ class SanctionsScreener:
             "score": combined_score,
             "sanctions_result": sanctions_result,
             "pep_result": pep_result,
+            "fintrac_mode": False,
+            "compliance_regime": "Global (OpenSanctions default)",
             "screened_at": datetime.utcnow().isoformat(),
             "datasets_checked": self._dataset_labels("sanctions")
             + self._dataset_labels("peps"),
@@ -275,7 +443,7 @@ class SanctionsScreener:
         for entity in results:
             score = entity.get("score", 0.0)
             if score < 0.40:
-                continue  # skip very low-confidence noise
+                continue
             top_score = max(top_score, score)
             props = entity.get("properties", {})
 
@@ -324,6 +492,19 @@ class SanctionsScreener:
         }
 
     @staticmethod
+    def _fintrac_label_for_dataset(ds: str) -> str:
+        """Return a human-readable FINTRAC label for a dataset key."""
+        return {
+            "ca_dfatd_sema_sanctions": (
+                "Global Affairs Canada – SEMA/DFATD Consolidated "
+                "(incl. Criminal Code s.83 + STR)"
+            ),
+            "un_sc_sanctions": "UN Security Council Consolidated (1267/1989/2253)",
+            "us_ofac_sdn": "OFAC SDN List (cross-border best practice)",
+            "interpol_red_notices": "Interpol Red Notices",
+        }.get(ds, ds)
+
+    @staticmethod
     def _dataset_labels(dataset_key: str) -> list:
         label_map = {
             "default": [
@@ -363,6 +544,7 @@ class SanctionsScreener:
                 "US Congress PEPs",
                 "Global Political Exposure Dataset",
             ],
+            "fintrac_consolidated": FINTRAC_DATASET_LABELS,
             "au_terror": ["Australia Listed Terrorist Organisations (Home Affairs)"],
             "au_dfat": ["Australia DFAT Consolidated Sanctions"],
             "uk": ["UK HM Treasury Office of Financial Sanctions (OFSI)"],
@@ -421,13 +603,17 @@ def register_sanctions_routes(
         """
         POST /api/sanctions/screen
         Body: {
-            name:           "John Smith",            (required)
-            birth_date:     "1975-03-12",            (ISO date, recommended)
-            nationality:    "GB",                    (ISO-2, recommended)
-            passport_number: "AB123456",             (optional)
-            id_number:      "NIC-1234",              (optional)
-            mode:           "full" | "sanctions" | "peps"   (default: full)
+            name:            "John Smith",              (required)
+            birth_date:      "1975-03-12",              (ISO date, recommended)
+            nationality:     "CA",                      (ISO-2, recommended)
+            passport_number: "AB123456",                (optional)
+            id_number:       "NIC-1234",                (optional)
+            country_code:    "CA",                      (optional, triggers FINTRAC)
+            mode:            "full" | "sanctions" | "peps" | "fintrac"
         }
+
+        When nationality or country_code is "CA", or mode is "fintrac",
+        FINTRAC-compliant screening is used automatically.
         """
         data = request.get_json() or {}
         name = (data.get("name") or "").strip()
@@ -435,25 +621,43 @@ def register_sanctions_routes(
             return jsonify({"error": "name is required"}), 400
 
         birth_date = data.get("birth_date") or data.get("birthDate")
-        nationality = data.get("nationality")
+        nationality = (data.get("nationality") or "").strip().upper()
+        country_code = (data.get("country_code") or "").strip().upper()
         passport_number = data.get("passport_number")
         id_number = data.get("id_number")
         mode = data.get("mode", "full")
 
+        # FINTRAC auto-routing
+        effective_country = country_code or nationality
+        use_fintrac = effective_country == "CA" or mode == "fintrac"
+
         try:
-            if mode == "full":
+            if use_fintrac:
+                result = screener.screen_person_fintrac(
+                    name,
+                    birth_date,
+                    nationality or None,
+                    passport_number,
+                    id_number,
+                )
+            elif mode == "full":
                 result = screener.full_kyc_screen(
-                    name, birth_date, nationality, passport_number, id_number
+                    name,
+                    birth_date,
+                    nationality or None,
+                    passport_number,
+                    id_number,
+                    country_code=effective_country or None,
                 )
             elif mode == "peps":
                 result = screener.screen_person(
-                    name, birth_date, nationality, dataset="peps"
+                    name, birth_date, nationality or None, dataset="peps"
                 )
             else:
                 result = screener.screen_person(
                     name,
                     birth_date,
-                    nationality,
+                    nationality or None,
                     passport_number,
                     id_number,
                     dataset="sanctions",
@@ -473,12 +677,12 @@ def register_sanctions_routes(
         POST /api/applications/<app_id>/sanctions-check
         Pulls applicant data from MongoDB, runs full KYC screening,
         saves results back, and writes an audit log entry.
+        Auto-selects FINTRAC mode when application country_code == "CA".
         """
         rec = applications_col.find_one({"application_id": app_id})
         if not rec:
             return jsonify({"error": "Application not found"}), 404
 
-        # Extract person details from the stored application
         full_name = rec.get("full_name") or rec.get("name") or ""
         birth_date = rec.get("date_of_birth") or rec.get("dob") or rec.get("birth_date")
         nationality = (
@@ -486,6 +690,7 @@ def register_sanctions_routes(
         )
         passport_num = rec.get("passport_number") or rec.get("passportNumber")
         id_number = rec.get("id_number") or rec.get("idNumber")
+        country_code = (rec.get("country_code") or "").strip().upper()
 
         if not full_name:
             return jsonify({"error": "No name found on application"}), 400
@@ -497,12 +702,12 @@ def register_sanctions_routes(
                 nationality=nationality,
                 passport_number=passport_num,
                 id_number=id_number,
+                country_code=country_code,
             )
         except Exception as e:
             logger.error("Sanctions check error for %s: %s", app_id, e)
             return jsonify({"error": str(e)}), 500
 
-        # Persist results to MongoDB
         update = {
             "sanctions_screening": {
                 **result,
@@ -512,11 +717,11 @@ def register_sanctions_routes(
             "updated_at": datetime.utcnow(),
         }
 
-        # Auto-update status if a hard block found
         if result.get("block"):
             update["status"] = "rejected"
             update["rejection_reason"] = (
                 f"Sanctions screening BLOCK: score={result.get('score', 0):.2f} "
+                f"({'FINTRAC' if result.get('fintrac_mode') else 'global'}) "
                 f"on {result.get('screened_at', '')}"
             )
             update["reviewed_by"] = "sanctions_auto"
@@ -524,12 +729,12 @@ def register_sanctions_routes(
 
         applications_col.update_one({"application_id": app_id}, {"$set": update})
 
-        # Audit log
         audit_fn(
             app_id,
             "sanctions_check_run",
             f"hit={result.get('hit')} block={result.get('block')} "
-            f"score={result.get('score', 0):.3f}",
+            f"score={result.get('score', 0):.3f} "
+            f"fintrac={result.get('fintrac_mode', False)}",
             user=session.get("email", "admin"),
         )
 
@@ -558,7 +763,6 @@ def register_sanctions_routes(
         if not screening:
             return jsonify({"screened": False, "message": "No sanctions check run yet"})
 
-        # Serialise datetime if stored as object
         if isinstance(screening.get("checked_at"), datetime):
             screening["checked_at"] = screening["checked_at"].isoformat()
 
@@ -571,8 +775,8 @@ def register_sanctions_routes(
     def bulk_sanctions_screen():
         """
         POST /api/sanctions/bulk-screen
-        Screens all applications that have not yet been sanctions-checked.
-        Returns a summary of results.
+        Screens all unscreened applications. Auto-routes CA to FINTRAC.
+        Returns a summary including fintrac_count.
         """
         query = {
             "sanctions_screening": {"$exists": False},
@@ -599,20 +803,30 @@ def register_sanctions_routes(
             "blocks": 0,
             "clean": 0,
             "errors": 0,
+            "fintrac_count": 0,  # how many were screened via FINTRAC
         }
 
         for rec in pending:
             app_id = rec["application_id"]
             name = rec.get("full_name") or rec.get("name") or ""
             dob = rec.get("date_of_birth") or rec.get("dob")
-            nat = rec.get("nationality") or rec.get("country_code")
+            nat = rec.get("nationality") or ""
+            country_code = (rec.get("country_code") or "").strip().upper()
 
             if not name:
                 summary["errors"] += 1
                 continue
 
             try:
-                result = screener.full_kyc_screen(name, dob, nat)
+                result = screener.full_kyc_screen(
+                    name,
+                    dob,
+                    nat or None,
+                    country_code=country_code or None,
+                )
+                if result.get("fintrac_mode"):
+                    summary["fintrac_count"] += 1
+
                 update = {
                     "sanctions_screening": {
                         **result,
@@ -623,7 +837,10 @@ def register_sanctions_routes(
                 }
                 if result.get("block"):
                     update["status"] = "rejected"
-                    update["rejection_reason"] = "Sanctions screening BLOCK (bulk run)"
+                    update["rejection_reason"] = (
+                        f"Sanctions screening BLOCK (bulk run, "
+                        f"{'FINTRAC' if result.get('fintrac_mode') else 'global'})"
+                    )
                     update["reviewed_by"] = "sanctions_auto"
                     update["reviewed_at"] = datetime.utcnow()
                     summary["blocks"] += 1
@@ -638,7 +855,8 @@ def register_sanctions_routes(
                 audit_fn(
                     app_id,
                     "sanctions_bulk_check",
-                    f"hit={result.get('hit')} block={result.get('block')}",
+                    f"hit={result.get('hit')} block={result.get('block')} "
+                    f"fintrac={result.get('fintrac_mode', False)}",
                     user="bulk_auto",
                 )
             except Exception as e:
