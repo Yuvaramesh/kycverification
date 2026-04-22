@@ -13,4 +13,3 @@
 ### AML check against Sanctionlist and pep list is in the branch "AML_Check"
 
 ### only for canada aml check similar to "fintrac" is in the branch "can_kyc_aml"
-
