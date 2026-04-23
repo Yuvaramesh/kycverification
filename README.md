@@ -1,5 +1,4 @@
 # All Branch Details
-
 ### Main Branch has the initial codefiles
 
 ### Internal verification implemented and is in the branch "implemented_internal_verification"
